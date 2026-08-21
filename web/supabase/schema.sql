@@ -87,3 +87,25 @@ create policy "match_events: read via owned match" on public.match_events
       where m.id = match_events.match_id and m.user_id = auth.uid()
     )
   );
+
+-- Browser-based CLI login (like `gh auth login`): the watcher starts a
+-- pairing, the user approves it in the web app, the watcher polls for the
+-- resulting token. `token` briefly holds the raw token between approval and
+-- the watcher's next poll, then the row is deleted — see
+-- app/api/cli-auth/*.
+create table if not exists public.cli_pairings (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  poll_secret text not null unique,
+  user_id uuid references public.profiles (id) on delete cascade,
+  token text,
+  status text not null default 'pending' check (status in ('pending', 'approved')),
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null default (now() + interval '10 minutes')
+);
+
+create index if not exists cli_pairings_poll_secret_idx on public.cli_pairings (poll_secret);
+
+-- No policies: only the service-role client (app/api/cli-auth/* routes) may
+-- read or write this table.
+alter table public.cli_pairings enable row level security;

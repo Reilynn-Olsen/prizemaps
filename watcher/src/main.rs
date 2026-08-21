@@ -1,5 +1,6 @@
 mod config;
 mod events;
+mod login;
 mod uploader;
 mod watcher;
 
@@ -24,9 +25,10 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Save your personal API token from the web app dashboard
+    /// Log in — opens your browser to approve. Pass a token to skip that
+    /// and set it directly (e.g. for scripted setups).
     Login {
-        token: String,
+        token: Option<String>,
         #[arg(long)]
         api_base_url: Option<String>,
     },
@@ -45,10 +47,14 @@ fn main() -> Result<()> {
 
     match cli.command {
         Commands::Login { token, api_base_url } => {
-            config.api_token = Some(token);
             if let Some(url) = api_base_url {
                 config.api_base_url = url;
             }
+            let token = match token {
+                Some(token) => token,
+                None => login::interactive_login(&config.api_base_url)?,
+            };
+            config.api_token = Some(token);
             config.save()?;
             println!("Logged in. Config saved to your OS config directory.");
         }
