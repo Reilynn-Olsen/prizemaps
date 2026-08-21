@@ -27,7 +27,7 @@ export default async function DashboardPage() {
         <h2 className="text-lg font-medium">Watcher setup</h2>
         <p className="mt-1 text-sm text-neutral-500">
           Generate a token, then run{" "}
-          <code className="rounded bg-neutral-100 px-1 py-0.5">
+          <code className="rounded bg-neutral-100 px-1 py-0.5 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100">
             tcg-watcher login &lt;token&gt;
           </code>{" "}
           on your machine.
