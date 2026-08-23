@@ -17,6 +17,7 @@ open = "5"
 xcap = "0.9.8"
 image = "0.25.10"
 arboard = "3.6.1"
+regex = "1"
 
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 enigo = "0.6.1"

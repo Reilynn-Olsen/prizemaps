@@ -1,3 +1,4 @@
+pub mod battle_log;
 pub mod calibrate;
 pub mod capture;
 pub mod config;

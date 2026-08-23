@@ -3226,6 +3226,7 @@ dependencies = [
  "enigo",
  "image",
  "open",
+ "regex",
  "reqwest",
  "serde",
  "serde_json",

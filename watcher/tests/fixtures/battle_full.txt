@@ -1,0 +1,251 @@
+Setup
+Shinwrld chose heads for the opening coin flip.
+Shinwrld won the coin toss.
+Shinwrld decided to go first.
+Shinwrld drew 7 cards for the opening hand.
+- 7 drawn cards.
+gklinsing drew 7 cards for the opening hand.
+- 7 drawn cards.
+   • Raikou V, Ultra Ball, Prime Catcher, Basic Lightning Energy, Boss's Orders, Area Zero Underdepths, Bravery Charm
+Shinwrld played Drifloon to the Active Spot.
+Shinwrld played Ralts to the Bench.
+gklinsing played Raikou V to the Active Spot.
+
+Turn # 1 - Shinwrld's Turn
+Shinwrld drew a card.
+Shinwrld attached Basic Psychic Energy to Drifloon in the Active Spot.
+Shinwrld ended their turn.
+
+Turn # 1 - gklinsing's Turn
+gklinsing drew Basic Lightning Energy.
+gklinsing's Raikou V used Fleet-Footed.
+- gklinsing drew Forest Seal Stone.
+gklinsing played Ultra Ball.
+- gklinsing discarded 2 cards.
+   • Bravery Charm, Basic Lightning Energy
+- gklinsing drew Miraidon ex.
+- gklinsing shuffled their deck.
+gklinsing played Miraidon ex to the Bench.
+gklinsing's Miraidon ex used Tandem Unit.
+- gklinsing drew 2 cards and played them to the Bench.
+   • Raikou V, Zapdos
+- gklinsing shuffled their deck.
+gklinsing attached Basic Lightning Energy to Raikou V in the Active Spot.
+gklinsing attached Forest Seal Stone to Raikou V in the Active Spot.
+gklinsing ended their turn.
+
+Turn # 2 - Shinwrld's Turn
+Shinwrld drew a card.
+Shinwrld evolved Ralts to Kirlia on the Bench.
+Shinwrld's Kirlia used Refinement.
+- Shinwrld discarded Basic Psychic Energy.
+- Shinwrld drew 2 cards.
+Shinwrld played Radiant Greninja to the Bench.
+Shinwrld played Iono.
+- Shinwrld shuffled their hand.
+- Shinwrld put 4 cards on the bottom of their deck.
+- gklinsing shuffled their hand.
+- Shinwrld moved Shinwrld's 3 cards to their deck.
+   • Prime Catcher, Area Zero Underdepths, Boss's Orders
+- Shinwrld drew 6 cards.
+- Shinwrld drew 6 cards.
+   • Electric Generator, Ultra Ball, Area Zero Underdepths, Basic Lightning Energy, Boss's Orders, Electric Generator
+Shinwrld's Radiant Greninja used Concealed Cards.
+- Shinwrld discarded Basic Psychic Energy.
+- Shinwrld drew 2 cards.
+Shinwrld attached Basic Psychic Energy to Drifloon in the Active Spot.
+Shinwrld's Drifloon used Gust on gklinsing’s Raikou V for 10 damage.
+
+Turn # 2 - gklinsing's Turn
+gklinsing drew Basic Lightning Energy.
+gklinsing's Miraidon ex used Tandem Unit.
+- gklinsing drew 2 cards and played them to the Bench.
+   • Mewtwo ex, Iron Hands ex
+- gklinsing shuffled their deck.
+gklinsing played Electric Generator.
+- gklinsing attached Basic Lightning Energy to Raikou V on the Bench.
+- gklinsing attached Basic Lightning Energy to Raikou V on the Bench.
+- gklinsing shuffled their deck.
+gklinsing played Electric Generator.
+- gklinsing attached Basic Lightning Energy to Iron Hands ex on the Bench.
+- gklinsing attached Basic Lightning Energy to Iron Hands ex on the Bench.
+- gklinsing shuffled their deck.
+gklinsing played Boss's Orders.
+- Shinwrld's Radiant Greninja was switched with Shinwrld's Drifloon to become the Active Pokémon.
+Shinwrld's Radiant Greninja is now in the Active Spot.
+gklinsing attached Basic Lightning Energy to Raikou V in the Active Spot.
+gklinsing's Raikou V used Lightning Rondo on Shinwrld’s Radiant Greninja for 340 damage. Shinwrld's Radiant Greninja took 170 more damage because of Lightning Weakness.
+Shinwrld's Radiant Greninja was Knocked Out!
+Shinwrld's Drifloon is now in the Active Spot.
+gklinsing took a Prize card.
+Boss's Orders was added to gklinsing's hand.
+
+Turn # 3 - Shinwrld's Turn
+Shinwrld drew a card.
+Shinwrld played Ralts to the Bench.
+Shinwrld played Boss's Orders.
+- gklinsing's Zapdos was switched with gklinsing's Raikou V to become the Active Pokémon.
+gklinsing's Zapdos is now in the Active Spot.
+Shinwrld's Kirlia used Refinement.
+- Shinwrld discarded Jacq.
+- Shinwrld drew 2 cards.
+Shinwrld played Artazon to the Stadium spot.
+Shinwrld played Artazon.
+- Shinwrld drew Mimikyu and played it to the Bench.
+- Shinwrld shuffled their deck.
+Shinwrld retreated Drifloon to the Bench.
+- Basic Psychic Energy was discarded from Shinwrld's Drifloon.
+Shinwrld's Mimikyu is now in the Active Spot.
+Shinwrld attached Basic Psychic Energy to Mimikyu in the Active Spot.
+Shinwrld ended their turn.
+
+Turn # 3 - gklinsing's Turn
+gklinsing drew Basic Lightning Energy.
+gklinsing played Area Zero Underdepths to the Stadium spot.
+- Shinwrld discarded Artazon.
+gklinsing's Miraidon ex used Tandem Unit.
+- gklinsing shuffled their deck.
+gklinsing attached Basic Lightning Energy to Iron Hands ex on the Bench.
+gklinsing played Boss's Orders.
+- Shinwrld's Kirlia was switched with Shinwrld's Mimikyu to become the Active Pokémon.
+Shinwrld's Kirlia is now in the Active Spot.
+gklinsing's Raikou V used Star Alchemy.
+- gklinsing drew Switch Cart.
+- gklinsing shuffled their deck.
+gklinsing can no longer use VSTAR Powers.
+gklinsing played Switch Cart.
+- gklinsing's Raikou V was switched with gklinsing's Zapdos to become the Active Pokémon.
+gklinsing's Raikou V is now in the Active Spot.
+gklinsing's Raikou V used Lightning Rondo on Shinwrld’s Kirlia for 190 damage.
+Shinwrld's Kirlia was Knocked Out!
+Ralts was discarded from Shinwrld's Kirlia.
+Shinwrld's Mimikyu is now in the Active Spot.
+gklinsing took a Prize card.
+Miraidon ex was added to gklinsing's hand.
+
+Turn # 4 - Shinwrld's Turn
+Shinwrld drew a card.
+Shinwrld evolved Ralts to Kirlia on the Bench.
+Shinwrld played Arven.
+- Shinwrld drew 2 cards.
+   • Nest Ball, Deluxe Bomb
+- Shinwrld shuffled their deck.
+Shinwrld played Nest Ball.
+- Shinwrld drew Lumineon V and played it to the Bench.
+- Shinwrld shuffled their deck.
+Shinwrld attached Deluxe Bomb to Mimikyu in the Active Spot.
+Shinwrld's Kirlia used Refinement.
+- Shinwrld discarded Rare Candy.
+- Shinwrld drew 2 cards.
+Shinwrld ended their turn.
+
+Turn # 4 - gklinsing's Turn
+gklinsing drew Area Zero Underdepths.
+gklinsing played Ultra Ball.
+- gklinsing discarded 2 cards.
+   • Area Zero Underdepths, Miraidon ex
+- gklinsing drew Iron Bundle.
+- gklinsing shuffled their deck.
+gklinsing played Iron Bundle to the Bench.
+gklinsing's Iron Bundle used Hyper Blower.
+- Shinwrld's Drifloon was switched with Shinwrld's Mimikyu to become the Active Pokémon.
+- gklinsing discarded Iron Bundle.
+Shinwrld's Drifloon is now in the Active Spot.
+gklinsing attached Basic Lightning Energy to Zapdos on the Bench.
+gklinsing's Raikou V used Lightning Rondo on Shinwrld’s Drifloon for 190 damage.
+Shinwrld's Drifloon was Knocked Out!
+Basic Psychic Energy was discarded from Shinwrld's Drifloon.
+Shinwrld's Mimikyu is now in the Active Spot.
+gklinsing took a Prize card.
+Basic Lightning Energy was added to gklinsing's hand.
+
+Turn # 5 - Shinwrld's Turn
+Shinwrld drew a card.
+Shinwrld played Drifloon to the Bench.
+Shinwrld's Kirlia used Refinement.
+- Shinwrld discarded Basic Psychic Energy.
+- Shinwrld drew 2 cards.
+Shinwrld played Nest Ball.
+- Shinwrld drew Mew ex and played it to the Bench.
+- Shinwrld shuffled their deck.
+Shinwrld evolved Kirlia to Gardevoir ex on the Bench.
+Shinwrld played Judge.
+- Shinwrld shuffled 2 cards into their deck.
+- Shinwrld put Basic Lightning Energy on top of their deck.
+- Shinwrld drew 4 cards.
+- Shinwrld drew 4 cards.
+   • Nest Ball, Ultra Ball, Basic Lightning Energy, Area Zero Underdepths
+Shinwrld attached Basic Psychic Energy to Mimikyu in the Active Spot.
+Shinwrld played Ralts to the Bench.
+Shinwrld's Mew ex used Restart.
+- Shinwrld drew a card.
+Shinwrld's Mimikyu used Ghost Eye.
+- Shinwrld put 7 damage counters on Shinwrld's Raikou V.
+
+Turn # 5 - gklinsing's Turn
+gklinsing drew Arven.
+gklinsing played Nest Ball.
+- gklinsing drew Fezandipiti ex and played it to the Bench.
+- gklinsing shuffled their deck.
+gklinsing played Arven.
+- gklinsing drew 2 cards.
+   • Electric Generator, Rescue Board
+- gklinsing shuffled their deck.
+gklinsing played Electric Generator.
+- gklinsing attached Basic Lightning Energy to Zapdos on the Bench.
+- gklinsing shuffled their deck.
+gklinsing attached Basic Lightning Energy to Zapdos on the Bench.
+gklinsing attached Rescue Board to Raikou V in the Active Spot.
+gklinsing retreated Raikou V to the Bench.
+gklinsing's Zapdos is now in the Active Spot.
+gklinsing's Zapdos used Electric Ball on Shinwrld’s Mimikyu for 110 damage.
+Shinwrld's Mimikyu was Knocked Out!
+- 2 cards were discarded from Shinwrld's Mimikyu.
+   • Basic Psychic Energy, Basic Psychic Energy
+gklinsing's Zapdos was Knocked Out!
+- 3 cards were discarded from gklinsing's Zapdos.
+   • Basic Lightning Energy, Basic Lightning Energy, Basic Lightning Energy
+Zapdos was activated.
+- gklinsing put 12 damage counters on Shinwrld's Zapdos.
+- Deluxe Bomb was discarded from Shinwrld's Mimikyu.
+Shinwrld's Drifloon is now in the Active Spot.
+gklinsing's Raikou V is now in the Active Spot.
+Shinwrld took a Prize card.
+gklinsing took a Prize card.
+A card was added to Shinwrld's hand.
+Radiant Greninja was added to gklinsing's hand.
+
+Turn # 6 - Shinwrld's Turn
+Shinwrld drew a card.
+Shinwrld attached Basic Psychic Energy to Drifloon in the Active Spot.
+Shinwrld retreated Drifloon to the Bench.
+- Basic Psychic Energy was discarded from Shinwrld's Drifloon.
+Shinwrld's Mew ex is now in the Active Spot.
+Shinwrld's Gardevoir ex used Psychic Embrace.
+- Shinwrld attached Basic Psychic Energy to Mew ex in the Active Spot.
+- Shinwrld put 2 damage counters on Shinwrld's Mew ex.
+- Shinwrld attached Basic Psychic Energy to Mew ex in the Active Spot.
+- Shinwrld put 2 damage counters on Shinwrld's Mew ex.
+- Shinwrld attached Basic Psychic Energy to Mew ex in the Active Spot.
+- Shinwrld put 2 damage counters on Shinwrld's Mew ex.
+Shinwrld's Mew ex used Genome Hacking on gklinsing’s Raikou V for 200 damage.
+- Shinwrld chose Lightning Rondo
+gklinsing's Raikou V was Knocked Out!
+- 3 cards were discarded from gklinsing's Raikou V.
+   • Basic Lightning Energy, Basic Lightning Energy, Forest Seal Stone
+gklinsing's Raikou V is now in the Active Spot.
+Shinwrld took 2 Prize cards.
+A card was added to Shinwrld's hand.
+A card was added to Shinwrld's hand.
+
+Turn # 6 - gklinsing's Turn
+gklinsing drew Arven.
+gklinsing played Radiant Greninja to the Bench.
+gklinsing's Raikou V used Lightning Rondo on Shinwrld’s Mew ex for 200 damage.
+Shinwrld's Mew ex was Knocked Out!
+- 3 cards were discarded from Shinwrld's Mew ex.
+   • Basic Psychic Energy, Basic Psychic Energy, Basic Psychic Energy
+gklinsing took 2 Prize cards.
+Basic Lightning Energy was added to gklinsing's hand.
+Bloodmoon Ursaluna ex was added to gklinsing's hand.
+All Prize cards taken. gklinsing wins.
