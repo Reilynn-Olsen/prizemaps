@@ -86,9 +86,17 @@ A few things learned the hard way, in case they bite on another machine:
 - **PTCGL's clipboard write leaves garbage after a NUL byte** — looks like
   a reused, not-zeroed buffer on the game's end. The watcher truncates at
   the first `\0` before uploading.
-- The web app has auth, token generation, ingestion, and a placeholder
-  dashboard — no replay viewer, and no parser that turns
-  `matches.battle_log_text` into a win/loss result or matchup stats yet.
+- The watcher now parses the battle log itself (`watcher/src/battle_log.rs`,
+  a deterministic line-grammar parser, not an LLM) and uploads structured
+  turn/event data alongside the raw text — `matches.result` and
+  `matches.opponent_name` get populated, and `match_events` gets one row per
+  parsed event (draws, plays, attacks, knockouts, prizes, ...), so the
+  ingest route no longer needs `battle_log_text` as the *only* source of
+  truth. `player_deck_archetype`/`opponent_deck_archetype` are still
+  unpopulated — the log never names a deck, only individual cards, so that
+  needs a separate card→archetype inference step.
+- The web app has auth, token generation, and ingestion of that structured
+  data — still no replay viewer or matchup/win-rate stats UI.
 
 ## Setup
 
@@ -112,10 +120,10 @@ A few things learned the hard way, in case they bite on another machine:
 
 ## Next steps
 
+- Build the replay viewer and matchup/win-rate charts on top of
+  `matches`/`match_events`, which are now populated with structured data.
 - Test on Windows/macOS and other Linux compositors/distros — everything
   above was proven on one specific CachyOS/KDE/Wayland machine.
-- Write a parser for `matches.battle_log_text` to extract a win/loss result
-  and per-turn structure — there's a real captured sample to design against
-  now (unlike `Player.log`).
-- Build the replay viewer and matchup/win-rate charts once that parser
-  exists.
+- Infer deck archetype from the Pokémon/cards seen in a match (the log never
+  names a deck directly) to populate `player_deck_archetype` /
+  `opponent_deck_archetype`.

@@ -19,6 +19,7 @@
 use std::sync::LazyLock;
 
 use regex::Regex;
+use serde::Serialize;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BattleLog {
@@ -60,7 +61,8 @@ pub struct TurnEvent {
     pub details: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum EventKind {
     CoinFlipChose { player: String, called: String },
     CoinFlipWon { player: String },
@@ -92,6 +94,35 @@ pub enum EventKind {
     Other,
 }
 
+impl EventKind {
+    /// Same spelling as this variant's `#[serde(tag = "type")]` value —
+    /// duplicated as a plain string for `match_events.kind`, a non-jsonb
+    /// column existing rows can filter/index on directly.
+    pub fn kind_str(&self) -> &'static str {
+        match self {
+            EventKind::CoinFlipChose { .. } => "coin_flip_chose",
+            EventKind::CoinFlipWon { .. } => "coin_flip_won",
+            EventKind::DecidedFirst { .. } => "decided_first",
+            EventKind::DrewOpeningHand { .. } => "drew_opening_hand",
+            EventKind::Drew { .. } => "drew",
+            EventKind::Played { .. } => "played",
+            EventKind::AbilityUsed { .. } => "ability_used",
+            EventKind::Attack { .. } => "attack",
+            EventKind::Attached { .. } => "attached",
+            EventKind::Retreated { .. } => "retreated",
+            EventKind::Evolved { .. } => "evolved",
+            EventKind::NowActive { .. } => "now_active",
+            EventKind::KnockedOut { .. } => "knocked_out",
+            EventKind::DiscardedFrom { .. } => "discarded_from",
+            EventKind::PrizeTaken { .. } => "prize_taken",
+            EventKind::HandGain { .. } => "hand_gain",
+            EventKind::EndedTurn { .. } => "ended_turn",
+            EventKind::EffectActivated { .. } => "effect_activated",
+            EventKind::Other => "other",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Outcome {
     pub winner: Option<String>,
@@ -103,6 +134,31 @@ pub enum MatchResult {
     Win,
     Loss,
     Unknown,
+}
+
+impl MatchResult {
+    /// Matches `matches.result`'s check constraint in `web/supabase/schema.sql`.
+    pub fn as_db_str(&self) -> &'static str {
+        match self {
+            MatchResult::Win => "win",
+            MatchResult::Loss => "loss",
+            MatchResult::Unknown => "unknown",
+        }
+    }
+}
+
+/// One event, flattened out of `BattleLog::setup`/`turns` into upload order
+/// — the shape `watcher/src/watcher.rs` sends for `match_events` rows.
+#[derive(Debug, Clone, Serialize)]
+pub struct FlatEvent {
+    pub sequence: u32,
+    /// `None` for setup (pre-turn-one) events.
+    pub turn_number: Option<u32>,
+    pub turn_player: Option<String>,
+    pub kind: &'static str,
+    pub raw: String,
+    pub details: Vec<String>,
+    pub payload: EventKind,
 }
 
 impl BattleLog {
@@ -140,6 +196,29 @@ impl BattleLog {
             Some(_) => MatchResult::Loss,
             None => MatchResult::Unknown,
         }
+    }
+
+    /// All events in upload order: setup first (`turn_number: None`), then
+    /// each turn's events in order. There are no real per-event timestamps
+    /// in the log — `sequence` is what establishes ordering downstream.
+    pub fn flatten_events(&self) -> Vec<FlatEvent> {
+        let setup = self.setup.events.iter().map(|e| (None, None, e));
+        let turns = self.turns.iter().flat_map(|t| {
+            t.events.iter().map(move |e| (Some(t.number), Some(t.player.clone()), e))
+        });
+        setup
+            .chain(turns)
+            .enumerate()
+            .map(|(i, (turn_number, turn_player, event))| FlatEvent {
+                sequence: i as u32,
+                turn_number,
+                turn_player,
+                kind: event.kind.kind_str(),
+                raw: event.raw.clone(),
+                details: event.details.clone(),
+                payload: event.kind.clone(),
+            })
+            .collect()
     }
 }
 
@@ -555,6 +634,36 @@ mod tests {
             .filter(|e| matches!(&e.kind, EventKind::EffectActivated { source } if source == "Battle Cage"))
             .count();
         assert_eq!(activations, 4);
+    }
+
+    #[test]
+    fn kind_str_matches_serde_tag() {
+        // Both are hand-maintained (kind_str isn't derived from the tag), so
+        // guard against them drifting apart for any event actually observed
+        // across the fixtures.
+        for fixture in [SHORT, FULL, REAL_NO_NUMBERS] {
+            let log = parse(fixture);
+            for event in log.setup.events.iter().chain(log.turns.iter().flat_map(|t| &t.events)) {
+                let serialized = serde_json::to_value(&event.kind).unwrap();
+                assert_eq!(serialized["type"], event.kind.kind_str(), "raw line: {}", event.raw);
+            }
+        }
+    }
+
+    #[test]
+    fn flattens_events_in_upload_order() {
+        let log = parse(SHORT);
+        let flat = log.flatten_events();
+        assert_eq!(flat.len(), log.setup.events.len() + log.turns.iter().map(|t| t.events.len()).sum::<usize>());
+        // Sequence is contiguous from 0, setup events first.
+        assert_eq!(flat[0].sequence, 0);
+        assert_eq!(flat[0].turn_number, None);
+        let first_turn_event = flat.iter().find(|e| e.turn_number.is_some()).unwrap();
+        assert_eq!(first_turn_event.turn_number, Some(1));
+        assert_eq!(first_turn_event.turn_player.as_deref(), Some("Shinwrld"));
+        for (i, event) in flat.iter().enumerate() {
+            assert_eq!(event.sequence, i as u32);
+        }
     }
 
     #[test]

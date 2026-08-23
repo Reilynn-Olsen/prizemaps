@@ -7,6 +7,7 @@ use arboard::Clipboard;
 use chrono::Utc;
 use uuid::Uuid;
 
+use crate::battle_log;
 use crate::capture::GameWindow;
 use crate::detector::{Template, TemplateSet};
 use crate::events::BattleLogSubmission;
@@ -150,12 +151,34 @@ fn capture_and_submit(
         bail!("clipboard was empty after clicking copy — not submitting");
     }
 
+    let log = battle_log::parse(&raw_text);
+    let perspective = log.perspective_player().map(str::to_string);
+    let (result, opponent_name) = match &perspective {
+        Some(me) => {
+            let opponent = if log.players.0 == *me { &log.players.1 } else { &log.players.0 };
+            (log.result_for(me), Some(opponent.clone()))
+        }
+        // Couldn't tell which player is us (e.g. neither hand was ever
+        // shown) — upload the raw text anyway and leave result/opponent for
+        // manual follow-up rather than blocking the submission on it.
+        None => (battle_log::MatchResult::Unknown, None),
+    };
+    let events = log.flatten_events();
+
     let submission = BattleLogSubmission {
         client_match_id: Uuid::new_v4(),
         captured_at: Utc::now(),
         raw_text,
+        result: result.as_db_str().to_string(),
+        opponent_name,
+        events,
     };
     uploader.upload_battle_log(&submission)?;
-    println!("submitted battle log (match id {})", submission.client_match_id);
+    println!(
+        "submitted battle log (match id {}, result {}, {} events)",
+        submission.client_match_id,
+        submission.result,
+        submission.events.len()
+    );
     Ok(())
 }
