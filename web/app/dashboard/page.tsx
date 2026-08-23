@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { matchTitle } from "@/lib/match-title";
 import { TokenGenerator } from "./token-generator";
 
 export default async function DashboardPage() {
@@ -14,7 +15,7 @@ export default async function DashboardPage() {
 
   const { data: matches } = await supabase
     .from("matches")
-    .select("id, opponent_name, result, created_at")
+    .select("id, opponent_name, player_deck_archetype, opponent_deck_archetype, result, created_at")
     .order("created_at", { ascending: false })
     .limit(20);
 
@@ -45,7 +46,12 @@ export default async function DashboardPage() {
           <ul className="mt-2 divide-y divide-neutral-200">
             {matches.map((match) => (
               <li key={match.id} className="py-2 text-sm">
-                vs {match.opponent_name ?? "unknown"} — {match.result}
+                {matchTitle({
+                  playerArchetype: match.player_deck_archetype,
+                  opponentName: match.opponent_name,
+                  opponentArchetype: match.opponent_deck_archetype,
+                })}{" "}
+                — {match.result}
               </li>
             ))}
           </ul>
