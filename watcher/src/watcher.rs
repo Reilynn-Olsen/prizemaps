@@ -19,15 +19,22 @@ const AFTER_CLICK_DELAY: Duration = Duration::from_millis(800);
 const PANEL_OPEN_RETRIES: u32 = 5;
 const CLIPBOARD_READ_RETRIES: u32 = 5;
 // The copy button is small (~95x95px) and ydotool's relative motion on this
-// machine has been measured to land up to ~200px off target run-to-run for
-// the same computed delta — a positioning-formula problem, not a timing one
-// (verified live: even a deterministic corner-reset followed by the same
-// computed move landed in different spots on consecutive identical
-// attempts). Rather than chase an exact click_scale that doesn't exist,
-// retry with a jittered point inside the calibrated region each time, using
-// "does the clipboard now hold something that looks like a battle log" as
-// the success signal.
-const COPY_CLICK_RETRIES: u32 = 8;
+// machine has been measured to land anywhere from ~200px to ~600px off
+// target run-to-run for the *same* computed delta — a positioning-formula
+// problem, not a timing one (verified live: even a deterministic
+// corner-reset followed by the same computed move landed in different spots
+// on consecutive identical attempts). Jittering only inside the button's
+// own tiny calibrated region did basically nothing — that spread (a few
+// tens of px) is negligible next to the noise itself (confirmed live: all
+// 8 attempts still missed). What actually needs to vary between attempts is
+// the *sent* target across a range comparable to the noise, and there need
+// to be enough attempts for that to plausibly land on target at least once.
+const COPY_CLICK_RETRIES: u32 = 25;
+/// How far a retry's click point can drift from the calibrated region
+/// (added to it, both directions), as a fraction of window size — sized to
+/// the noise itself, not the button's own small size. See
+/// `jittered_point_in_region`.
+const COPY_CLICK_JITTER_RADIUS: f32 = 0.12;
 
 /// Polls for the PTCGL window, and once the post-match "Show Battle Log"
 /// button is on screen, clicks it, clicks "Copy to Clipboard", and uploads
@@ -226,27 +233,32 @@ fn capture_and_submit(
     Ok(())
 }
 
-/// A point inside `region` (fraction `[x, y, w, h]`) to click on retry
-/// `attempt`. Attempt 0 uses the region's exact calibrated center — the
-/// common case where that just works. Later attempts use a pseudo-random
-/// point within the region's inner 70% (avoiding the very edges): ydotool's
-/// relative motion has been measured live to land inconsistently by up to
-/// ~200px run-to-run for the *same* computed target on this machine, so
-/// spreading retries across the target's actual area finds a hit far more
-/// reliably than repeating the identical nominal point and hoping.
+/// A point to click on retry `attempt`, centered on `region` (fraction
+/// `[x, y, w, h]`). Attempt 0 uses the region's exact calibrated center —
+/// the common case where that just works. Later attempts jitter by up to
+/// `COPY_CLICK_JITTER_RADIUS` in window-fraction terms, clamped to stay on
+/// screen: sized to the *noise itself* (measured live at several hundred
+/// px), not to the button's own small size — jittering only within the
+/// button's own region was tried first and did basically nothing, since
+/// that spread is negligible next to noise that much bigger.
 fn jittered_point_in_region(region: [f32; 4], attempt: u32) -> (f32, f32) {
     let [rx, ry, rw, rh] = region;
+    let (cx, cy) = (rx + rw / 2.0, ry + rh / 2.0);
     if attempt == 0 {
-        return (rx + rw / 2.0, ry + rh / 2.0);
+        return (cx, cy);
     }
     let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.subsec_nanos())
         .unwrap_or(0);
-    let seed = nanos.wrapping_add(attempt.wrapping_mul(104_729));
-    let unit_x = (seed % 1000) as f32 / 1000.0;
-    let unit_y = ((seed / 1000) % 1000) as f32 / 1000.0;
-    let x = rx + rw * (0.15 + 0.70 * unit_x);
-    let y = ry + rh * (0.15 + 0.70 * unit_y);
+    // Two decorrelated-enough pseudo-random units from one time sample —
+    // different mixing constants per axis, not just splitting one number's
+    // digits (which would correlate x and y).
+    let seed_x = nanos.wrapping_add(attempt.wrapping_mul(104_729));
+    let seed_y = nanos.wrapping_mul(2_654_435_761).wrapping_add(attempt.wrapping_mul(40_503));
+    let unit_x = (seed_x % 10_000) as f32 / 10_000.0 * 2.0 - 1.0; // [-1, 1]
+    let unit_y = (seed_y % 10_000) as f32 / 10_000.0 * 2.0 - 1.0;
+    let x = (cx + COPY_CLICK_JITTER_RADIUS * unit_x).clamp(0.02, 0.98);
+    let y = (cy + COPY_CLICK_JITTER_RADIUS * unit_y).clamp(0.02, 0.98);
     (x, y)
 }
