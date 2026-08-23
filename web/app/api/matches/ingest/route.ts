@@ -20,6 +20,10 @@ type IngestBody = {
   // these — treat them as optional and fall back to the pre-parser defaults.
   result?: "win" | "loss" | "unknown";
   opponent_name?: string | null;
+  // Best-guess archetypes from watcher/src/battle_log.rs's attacker/
+  // evolution usage heuristic — not from an external archetype database.
+  player_deck_archetype?: string | null;
+  opponent_deck_archetype?: string | null;
   events?: IngestEvent[];
 };
 
@@ -61,6 +65,8 @@ export async function POST(req: Request) {
         ended_at: body.captured_at,
         result: body.result ?? "unknown",
         opponent_name: body.opponent_name ?? null,
+        player_deck_archetype: body.player_deck_archetype ?? null,
+        opponent_deck_archetype: body.opponent_deck_archetype ?? null,
       },
       { onConflict: "user_id,client_match_id" },
     )

@@ -153,15 +153,15 @@ fn capture_and_submit(
 
     let log = battle_log::parse(&raw_text);
     let perspective = log.perspective_player().map(str::to_string);
-    let (result, opponent_name) = match &perspective {
+    let (result, opponent_name, player_deck_archetype, opponent_deck_archetype) = match &perspective {
         Some(me) => {
             let opponent = if log.players.0 == *me { &log.players.1 } else { &log.players.0 };
-            (log.result_for(me), Some(opponent.clone()))
+            (log.result_for(me), Some(opponent.clone()), log.archetype_for(me), log.archetype_for(opponent))
         }
         // Couldn't tell which player is us (e.g. neither hand was ever
         // shown) — upload the raw text anyway and leave result/opponent for
         // manual follow-up rather than blocking the submission on it.
-        None => (battle_log::MatchResult::Unknown, None),
+        None => (battle_log::MatchResult::Unknown, None, None, None),
     };
     let events = log.flatten_events();
 
@@ -171,6 +171,8 @@ fn capture_and_submit(
         raw_text,
         result: result.as_db_str().to_string(),
         opponent_name,
+        player_deck_archetype,
+        opponent_deck_archetype,
         events,
     };
     uploader.upload_battle_log(&submission)?;

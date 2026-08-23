@@ -220,6 +220,70 @@ impl BattleLog {
             })
             .collect()
     }
+
+    /// Best-guess deck archetype label for `player` — no external archetype
+    /// database, just their own Pokémon usage: competitive decks are almost
+    /// always named after their headline attacker (that's what "Dragapult
+    /// ex" *means* as a deck name), and we already parse exactly which
+    /// Pokémon attacked and how often.
+    ///
+    /// Tier 1: the Pokémon used most as an attacker. Tier 2 (fallback for a
+    /// player who never got to attack, e.g. they lost first): the
+    /// furthest-evolved Pokémon they got into play. Within each tier, a
+    /// "special" Pokémon (ex/V/VSTAR/VMAX/GX — the rule-box Pokémon that
+    /// define an archetype) always outranks a non-special one, even with a
+    /// lower count; ties otherwise go to whichever was seen first. `None` if
+    /// neither tier finds anything.
+    pub fn archetype_for(&self, player: &str) -> Option<String> {
+        let attacks = tally_in_order(self.turns.iter().flat_map(|t| &t.events).filter_map(|e| match &e.kind {
+            EventKind::Attack { player: p, pokemon, .. } if p == player => Some(pokemon.clone()),
+            _ => None,
+        }));
+        if let Some(name) = best_candidate(attacks) {
+            return Some(name);
+        }
+        let evolutions = tally_in_order(self.turns.iter().flat_map(|t| &t.events).filter_map(|e| match &e.kind {
+            EventKind::Evolved { player: p, to, .. } if p == player => Some(to.clone()),
+            _ => None,
+        }));
+        best_candidate(evolutions)
+    }
+}
+
+/// Counts occurrences of each name, preserving first-seen order (so a tie
+/// in `best_candidate` resolves to whichever appeared earliest).
+fn tally_in_order(names: impl Iterator<Item = String>) -> Vec<(String, u32)> {
+    let mut counts: Vec<(String, u32)> = Vec::new();
+    for name in names {
+        match counts.iter_mut().find(|(n, _)| *n == name) {
+            Some(entry) => entry.1 += 1,
+            None => counts.push((name, 1)),
+        }
+    }
+    counts
+}
+
+/// ex/V/VSTAR/VMAX/GX/V-UNION — the "rule-box" Pokémon that define a
+/// competitive deck's name, distinct from a normal (non-suffixed) Pokémon.
+fn is_special_pokemon(name: &str) -> bool {
+    [" ex", " V", " VSTAR", " VMAX", " GX", " V-UNION"].iter().any(|suffix| name.ends_with(suffix))
+}
+
+fn best_candidate(counts: Vec<(String, u32)>) -> Option<String> {
+    let mut best: Option<(String, bool, u32)> = None;
+    for (name, count) in counts {
+        let special = is_special_pokemon(&name);
+        let is_better = match &best {
+            None => true,
+            // Strict `>` (not `>=`) so the earliest-seen candidate — first
+            // in `counts`, since `tally_in_order` preserves that — wins ties.
+            Some((_, best_special, best_count)) => (special, count) > (*best_special, *best_count),
+        };
+        if is_better {
+            best = Some((name, special, count));
+        }
+    }
+    best.map(|(name, _, _)| name)
 }
 
 pub fn parse(raw_text: &str) -> BattleLog {
@@ -622,6 +686,36 @@ mod tests {
         assert_eq!(log.outcome.winner.as_deref(), Some("reindoe12"));
         assert_eq!(log.result_for("reindoe12"), MatchResult::Win);
         assert_eq!(log.result_for("Guibattis28"), MatchResult::Loss);
+    }
+
+    #[test]
+    fn guesses_archetype_from_attacker_usage() {
+        let log = parse(REAL_NO_NUMBERS);
+        // reindoe12 attacked three times with Dragapult ex — the clear
+        // majority attacker, and it's a rule-box Pokémon besides.
+        assert_eq!(log.archetype_for("reindoe12").as_deref(), Some("Dragapult ex"));
+    }
+
+    #[test]
+    fn guesses_archetype_from_evolutions_when_player_never_attacked() {
+        let log = parse(REAL_NO_NUMBERS);
+        // Guibattis28 never landed an attack before losing. They have two
+        // top-level Evolved events: "Charmeleon" (not special) and "Mega
+        // Charizard Y ex" (special) — special wins regardless of order/count.
+        // ("Mega Charizard X ex" only appears inside a "- " detail line, so
+        // it's invisible to this — see the fixture around line 137.)
+        assert_eq!(log.archetype_for("Guibattis28").as_deref(), Some("Mega Charizard Y ex"));
+    }
+
+    #[test]
+    fn guesses_archetype_prefers_special_pokemon_on_a_count_tie() {
+        let log = parse(FULL);
+        // Shinwrld attacked once each with Drifloon (not special, turn 2)
+        // and Mew ex (special, turn 6) — Mew ex should win despite tying on
+        // count and despite Drifloon being seen first.
+        assert_eq!(log.archetype_for("Shinwrld").as_deref(), Some("Mew ex"));
+        // gklinsing's Raikou V attacked four times vs. Zapdos's one.
+        assert_eq!(log.archetype_for("gklinsing").as_deref(), Some("Raikou V"));
     }
 
     #[test]

@@ -18,12 +18,12 @@ fn main() -> anyhow::Result<()> {
 
     let log = battle_log::parse(&raw_text);
     let perspective = log.perspective_player().map(str::to_string);
-    let (result, opponent_name) = match &perspective {
+    let (result, opponent_name, player_deck_archetype, opponent_deck_archetype) = match &perspective {
         Some(me) => {
             let opponent = if log.players.0 == *me { &log.players.1 } else { &log.players.0 };
-            (log.result_for(me), Some(opponent.clone()))
+            (log.result_for(me), Some(opponent.clone()), log.archetype_for(me), log.archetype_for(opponent))
         }
-        None => (battle_log::MatchResult::Unknown, None),
+        None => (battle_log::MatchResult::Unknown, None, None, None),
     };
 
     let submission = BattleLogSubmission {
@@ -32,6 +32,8 @@ fn main() -> anyhow::Result<()> {
         raw_text,
         result: result.as_db_str().to_string(),
         opponent_name,
+        player_deck_archetype,
+        opponent_deck_archetype,
         events: log.flatten_events(),
     };
     uploader.upload_battle_log(&submission)?;

@@ -19,5 +19,10 @@ pub struct BattleLogSubmission {
     /// couldn't be determined (e.g. neither player's hand was ever shown).
     pub result: String,
     pub opponent_name: Option<String>,
+    /// Best-guess deck archetypes from `BattleLog::archetype_for` — not
+    /// from an external archetype database, just our own attacker/evolution
+    /// usage heuristic. `None` if the heuristic found nothing to go on.
+    pub player_deck_archetype: Option<String>,
+    pub opponent_deck_archetype: Option<String>,
     pub events: Vec<FlatEvent>,
 }
