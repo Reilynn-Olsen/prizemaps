@@ -86,6 +86,9 @@ pub enum EventKind {
     PrizeTaken { player: String, count: u32 },
     HandGain { player: String, card: Option<String> },
     EndedTurn { player: String },
+    /// A Stadium/passive-item effect firing (e.g. "Battle Cage was
+    /// activated."). No acting player — it's not either side's action.
+    EffectActivated { source: String },
     Other,
 }
 
@@ -146,6 +149,11 @@ pub fn parse(raw_text: &str) -> BattleLog {
     let mut turns: Vec<Turn> = Vec::new();
     let mut current_turn: Option<Turn> = None;
     let mut outcome = Outcome::default();
+    // Real captures have been seen both with an explicit "Turn # N - "
+    // prefix and without one — when it's missing, number rounds by pairs of
+    // headers (each round is one turn per player, in order), matching the
+    // numbering the explicit form uses.
+    let mut headers_seen: u32 = 0;
 
     for line in raw_text.lines() {
         let line = line.trim_end();
@@ -158,6 +166,8 @@ pub fn parse(raw_text: &str) -> BattleLog {
             if let Some(turn) = current_turn.take() {
                 turns.push(turn);
             }
+            let number = number.unwrap_or(headers_seen / 2 + 1);
+            headers_seen += 1;
             players.seen(&player);
             current_turn = Some(Turn { number, player, events: Vec::new() });
             continue;
@@ -270,7 +280,7 @@ impl EventKind {
             | EventKind::PrizeTaken { player, .. }
             | EventKind::HandGain { player, .. }
             | EventKind::EndedTurn { player } => Some(player),
-            EventKind::Other => None,
+            EventKind::EffectActivated { .. } | EventKind::Other => None,
         }
     }
 }
@@ -285,7 +295,9 @@ macro_rules! re {
     };
 }
 
-re!(TURN_HEADER, r"^Turn # (\d+) - (.+)'s Turn$");
+// The "Turn # N - " prefix has been observed present in some captures and
+// absent in others (real capture: bare "<Player>'s Turn"), so it's optional.
+re!(TURN_HEADER, r"^(?:Turn # (\d+) - )?(.+)'s Turn$");
 // Player names don't contain spaces, so the token right after a sentence
 // boundary (line start, or ". ") immediately before " wins." is the winner —
 // avoids a naive `.+ wins\.$` swallowing the rest of a leading sentence like
@@ -310,10 +322,12 @@ re!(DISCARDED_FROM, r"^(.+) was discarded from (.+)['\u{2019}]s (.+)\.$");
 re!(PRIZE_TAKEN, r"^(.+) took (?:a Prize card|(\d+) Prize cards)\.$");
 re!(HAND_GAIN, r"^(.+) was added to (.+)['\u{2019}]s hand\.$");
 re!(ENDED_TURN, r"^(.+) ended their turn\.$");
+re!(EFFECT_ACTIVATED, r"^(.+) was activated\.$");
 
-fn match_turn_header(line: &str) -> Option<(u32, String)> {
+fn match_turn_header(line: &str) -> Option<(Option<u32>, String)> {
     let caps = TURN_HEADER.captures(line)?;
-    Some((caps[1].parse().ok()?, caps[2].to_string()))
+    let number = caps.get(1).and_then(|m| m.as_str().parse().ok());
+    Some((number, caps[2].to_string()))
 }
 
 fn match_outcome(line: &str) -> Option<String> {
@@ -379,6 +393,9 @@ fn classify_top_level(line: &str) -> EventKind {
     if let Some(c) = ENDED_TURN.captures(line) {
         return EventKind::EndedTurn { player: c[1].to_string() };
     }
+    if let Some(c) = EFFECT_ACTIVATED.captures(line) {
+        return EventKind::EffectActivated { source: c[1].to_string() };
+    }
     if let Some(c) = PLAYED_LOCATION.captures(line) {
         return EventKind::Played { player: c[1].to_string(), card: c[2].to_string(), location: Some(c[3].to_string()) };
     }
@@ -420,6 +437,7 @@ mod tests {
 
     const SHORT: &str = include_str!("../tests/fixtures/battle_short.txt");
     const FULL: &str = include_str!("../tests/fixtures/battle_full.txt");
+    const REAL_NO_NUMBERS: &str = include_str!("../tests/fixtures/battle_real_no_turn_numbers.txt");
 
     #[test]
     fn parses_players_in_order_of_appearance() {
@@ -502,5 +520,59 @@ mod tests {
                 "gklinsing shuffled their deck.",
             ]
         );
+    }
+
+    #[test]
+    fn numbers_turns_by_pairs_when_the_log_omits_turn_numbers() {
+        // A real capture (this fixture) turned out to omit the "Turn # N - "
+        // prefix entirely, unlike the two reference-repo samples above —
+        // turn numbers have to be inferred by counting header pairs instead.
+        let log = parse(REAL_NO_NUMBERS);
+        assert_eq!(log.turns.len(), 10); // 5 rounds x 2 players
+        assert_eq!(log.turns[0].number, 1);
+        assert_eq!(log.turns[1].number, 1);
+        assert_eq!(log.turns[8].number, 5);
+        assert_eq!(log.turns[9].number, 5);
+    }
+
+    #[test]
+    fn parses_real_capture_outcome_and_perspective() {
+        let log = parse(REAL_NO_NUMBERS);
+        assert_eq!(log.players, ("Guibattis28".to_string(), "reindoe12".to_string()));
+        assert_eq!(log.perspective_player(), Some("reindoe12"));
+        assert_eq!(log.outcome.winner.as_deref(), Some("reindoe12"));
+        assert_eq!(log.result_for("reindoe12"), MatchResult::Win);
+        assert_eq!(log.result_for("Guibattis28"), MatchResult::Loss);
+    }
+
+    #[test]
+    fn parses_stadium_effect_activation() {
+        let log = parse(REAL_NO_NUMBERS);
+        let activations = log
+            .turns
+            .iter()
+            .flat_map(|t| &t.events)
+            .filter(|e| matches!(&e.kind, EventKind::EffectActivated { source } if source == "Battle Cage"))
+            .count();
+        assert_eq!(activations, 4);
+    }
+
+    #[test]
+    fn every_top_level_line_is_classified() {
+        // Excludes FULL: it has one genuinely rare rule-notice line ("...can
+        // no longer use VSTAR Powers.") that's an intentional gap per this
+        // module's doc comment, not a regression to guard against.
+        for fixture in [SHORT, REAL_NO_NUMBERS] {
+            let log = parse(fixture);
+            let unclassified: Vec<&str> = log
+                .setup
+                .events
+                .iter()
+                .chain(log.turns.iter().flat_map(|t| &t.events))
+                .filter(|e| matches!(e.kind, EventKind::Other))
+                .map(|e| e.raw.as_str())
+                .collect();
+            assert!(unclassified.is_empty(), "unclassified lines: {unclassified:?}");
+        }
     }
 }
