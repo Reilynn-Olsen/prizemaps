@@ -112,7 +112,19 @@ impl Clicker for YdotoolClicker {
         self.move_relative(dx / 2, dy / 2)?;
         sleep(Duration::from_millis(150));
         self.move_relative(dx - dx / 2, dy - dy / 2)?;
-        sleep(Duration::from_millis(150));
+        sleep(Duration::from_millis(250));
+
+        // Verified live: the button doesn't accept a click after simply
+        // *arriving* and sitting still, even after a long pause — a real
+        // mouse nudge after arrival was what made it clickable. A tiny
+        // in-place jiggle (net zero displacement, so it doesn't move off
+        // target) reproduces that: something about this UI's hover/active
+        // state needs an actual motion event fired *right before* the
+        // click, not just being positioned correctly.
+        self.move_relative(3, 3)?;
+        sleep(Duration::from_millis(80));
+        self.move_relative(-3, -3)?;
+        sleep(Duration::from_millis(250));
 
         // Explicit down/up (not the combined `0xC0` click) with a real
         // pause between them — verified live as the reliable pattern for
