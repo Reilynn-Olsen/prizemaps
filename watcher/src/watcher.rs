@@ -18,6 +18,16 @@ const POLL_INTERVAL: Duration = Duration::from_secs(2);
 const AFTER_CLICK_DELAY: Duration = Duration::from_millis(800);
 const PANEL_OPEN_RETRIES: u32 = 5;
 const CLIPBOARD_READ_RETRIES: u32 = 5;
+// The copy button is small (~95x95px) and ydotool's relative motion on this
+// machine has been measured to land up to ~200px off target run-to-run for
+// the same computed delta — a positioning-formula problem, not a timing one
+// (verified live: even a deterministic corner-reset followed by the same
+// computed move landed in different spots on consecutive identical
+// attempts). Rather than chase an exact click_scale that doesn't exist,
+// retry with a jittered point inside the calibrated region each time, using
+// "does the clipboard now hold something that looks like a battle log" as
+// the success signal.
+const COPY_CLICK_RETRIES: u32 = 8;
 
 /// Polls for the PTCGL window, and once the post-match "Show Battle Log"
 /// button is on screen, clicks it, clicks "Copy to Clipboard", and uploads
@@ -119,54 +129,70 @@ fn capture_and_submit(
     }
 
     // Unlike the show-log button, "Copy to Clipboard" isn't a toggle, so
-    // clicking it is always safe — and clicking it unconditionally (not
-    // only right after opening the panel) guarantees the clipboard holds
-    // *this* log right before we read it, rather than trusting whatever
-    // happens to already be there if the panel was left open from earlier
-    // (e.g. a previous poll cycle, or literally anything else that wrote to
-    // the system clipboard in the meantime).
-    clicker.click_at_fraction(window, copy_button.def.click[0], copy_button.def.click[1])?;
-    sleep(AFTER_CLICK_DELAY);
+    // clicking it repeatedly is always safe. Each attempt clicks a jittered
+    // point inside the calibrated region (not the same exact fraction every
+    // time — see COPY_CLICK_RETRIES) and checks whether the clipboard now
+    // holds something that parses as a real battle log; that's both the
+    // click-success signal and what guards against uploading whatever
+    // happened to already be in the clipboard from something unrelated.
+    let region = copy_button.def.region;
+    let mut capture: Option<(String, battle_log::BattleLog)> = None;
+    for attempt in 0..COPY_CLICK_RETRIES {
+        let (jx, jy) = jittered_point_in_region(region, attempt);
+        clicker.click_at_fraction(window, jx, jy)?;
+        sleep(AFTER_CLICK_DELAY);
 
-    // The clipboard write on the game's side isn't always immediately
-    // visible to us right after the click — observed live as a transient
-    // "contents not available" error that clears up within a second.
-    let mut raw_text = String::new();
-    for attempt in 0..CLIPBOARD_READ_RETRIES {
-        match clipboard.get_text() {
-            Ok(text) => {
-                raw_text = text;
-                break;
+        let mut raw_text = String::new();
+        let mut read_ok = false;
+        for read_attempt in 0..CLIPBOARD_READ_RETRIES {
+            match clipboard.get_text() {
+                Ok(text) => {
+                    raw_text = text;
+                    read_ok = true;
+                    break;
+                }
+                Err(err) if read_attempt + 1 < CLIPBOARD_READ_RETRIES => {
+                    // The clipboard write on the game's side isn't always
+                    // immediately visible to us right after the click —
+                    // observed live as a transient "contents not available"
+                    // error that clears up within a second.
+                    eprintln!("clipboard not ready yet ({err:#}), retrying...");
+                    sleep(AFTER_CLICK_DELAY);
+                }
+                Err(err) => eprintln!("clipboard read failed ({err:#})"),
             }
-            Err(err) if attempt + 1 < CLIPBOARD_READ_RETRIES => {
-                eprintln!("clipboard not ready yet ({err:#}), retrying...");
-                sleep(AFTER_CLICK_DELAY);
-            }
-            Err(err) => return Err(err).context("failed to read clipboard"),
         }
-    }
-    // PTCGL's clipboard write leaves stray uninitialized-buffer bytes after
-    // a NUL terminator (observed live: "...wins.\n\n\0eded. wins.\n\n\n" —
-    // leftover tail from whatever longer string previously occupied that
-    // buffer). Everything from the first NUL on is garbage, not log
-    // content, and a literal NUL in the JSON body breaks the server's
-    // parser.
-    if let Some(nul_pos) = raw_text.find('\0') {
-        raw_text.truncate(nul_pos);
-    }
-    if raw_text.trim().is_empty() {
-        bail!("clipboard was empty after clicking copy — not submitting");
-    }
+        if !read_ok {
+            continue;
+        }
 
-    let log = battle_log::parse(&raw_text);
-    // The clipboard can end up holding something other than a battle log
-    // (observed live: whatever the user last copied elsewhere, if the copy
-    // click ever raced with unrelated clipboard activity) — every real
-    // capture has a coin flip and at least one turn, so their absence means
-    // this isn't a battle log at all. Bail rather than upload garbage.
-    if log.setup.coin_flip.is_none() && log.turns.is_empty() {
-        bail!("clipboard content doesn't look like a battle log (no coin flip or turns found) — not submitting");
+        // PTCGL's clipboard write leaves stray uninitialized-buffer bytes
+        // after a NUL terminator (observed live:
+        // "...wins.\n\n\0eded. wins.\n\n\n" — leftover tail from whatever
+        // longer string previously occupied that buffer). Everything from
+        // the first NUL on is garbage, not log content, and a literal NUL
+        // in the JSON body breaks the server's parser.
+        if let Some(nul_pos) = raw_text.find('\0') {
+            raw_text.truncate(nul_pos);
+        }
+        if raw_text.trim().is_empty() {
+            continue;
+        }
+
+        let parsed = battle_log::parse(&raw_text);
+        // Every real capture has a coin flip and at least one turn — their
+        // absence means the click missed (clipboard still holds whatever it
+        // held before) or landed on something else entirely.
+        if parsed.setup.coin_flip.is_none() && parsed.turns.is_empty() {
+            eprintln!("copy click attempt {} didn't produce a battle log, retrying...", attempt + 1);
+            continue;
+        }
+        capture = Some((raw_text, parsed));
+        break;
     }
+    let (raw_text, log) = capture.context(format!(
+        "copy-to-clipboard click never produced a battle log after {COPY_CLICK_RETRIES} attempts"
+    ))?;
     let perspective = log.perspective_player().map(str::to_string);
     let (result, opponent_name, player_deck_archetype, opponent_deck_archetype) = match &perspective {
         Some(me) => {
@@ -198,4 +224,29 @@ fn capture_and_submit(
         submission.events.len()
     );
     Ok(())
+}
+
+/// A point inside `region` (fraction `[x, y, w, h]`) to click on retry
+/// `attempt`. Attempt 0 uses the region's exact calibrated center — the
+/// common case where that just works. Later attempts use a pseudo-random
+/// point within the region's inner 70% (avoiding the very edges): ydotool's
+/// relative motion has been measured live to land inconsistently by up to
+/// ~200px run-to-run for the *same* computed target on this machine, so
+/// spreading retries across the target's actual area finds a hit far more
+/// reliably than repeating the identical nominal point and hoping.
+fn jittered_point_in_region(region: [f32; 4], attempt: u32) -> (f32, f32) {
+    let [rx, ry, rw, rh] = region;
+    if attempt == 0 {
+        return (rx + rw / 2.0, ry + rh / 2.0);
+    }
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.subsec_nanos())
+        .unwrap_or(0);
+    let seed = nanos.wrapping_add(attempt.wrapping_mul(104_729));
+    let unit_x = (seed % 1000) as f32 / 1000.0;
+    let unit_y = ((seed / 1000) % 1000) as f32 / 1000.0;
+    let x = rx + rw * (0.15 + 0.70 * unit_x);
+    let y = ry + rh * (0.15 + 0.70 * unit_y);
+    (x, y)
 }

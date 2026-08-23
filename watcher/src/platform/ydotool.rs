@@ -80,6 +80,25 @@ impl YdotoolClicker {
     fn move_relative(&self, dx: i32, dy: i32) -> Result<()> {
         self.run(&["mousemove", "-x", &dx.to_string(), "-y", &dy.to_string()])
     }
+
+    /// Clamps the cursor to the corner of the whole multi-monitor desktop.
+    /// Verified live: a single `-50_000` jump does clamp (it doesn't fly off
+    /// past the edge), but which exact point it lands on is *not*
+    /// deterministic — repeated single huge jumps landed anywhere from
+    /// `(1,1)` to `(185,76)`. Sending the same total distance as several
+    /// smaller jumps landed on the literal `(0,0)` corner every time in
+    /// repeated testing. Not fully understood why (consistent with the same
+    /// velocity-sensitive pointer acceleration behind the other gotchas in
+    /// this module, just applying to the reset move too), but empirically
+    /// reliable, so used here regardless.
+    fn reset_to_corner(&self) -> Result<()> {
+        const STEPS: i32 = 10;
+        for _ in 0..STEPS {
+            self.move_relative(-CORNER_RESET_MAGNITUDE / STEPS, -CORNER_RESET_MAGNITUDE / STEPS)?;
+            sleep(Duration::from_millis(50));
+        }
+        Ok(())
+    }
 }
 
 impl Clicker for YdotoolClicker {
@@ -94,7 +113,7 @@ impl Clicker for YdotoolClicker {
         let dx = (win_x as f32 * self.click_scale).round() as i32;
         let dy = (win_y as f32 * self.click_scale).round() as i32;
 
-        self.move_relative(-CORNER_RESET_MAGNITUDE, -CORNER_RESET_MAGNITUDE)?;
+        self.reset_to_corner()?;
         // A short pause here was necessary during live testing to get a
         // consistent, reproducible delta out of the moves that follow —
         // chaining ydotool relative moves with no gap between them measured
