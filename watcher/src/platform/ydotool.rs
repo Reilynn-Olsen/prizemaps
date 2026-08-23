@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
 
+use super::kde_ground_truth;
 use super::Clicker;
 use crate::capture::GameWindow;
 
@@ -99,6 +100,49 @@ impl YdotoolClicker {
         }
         Ok(())
     }
+
+    /// Best-effort closed-loop correction using KWin ground truth (KDE
+    /// only — see `kde_ground_truth`'s doc comment; a no-op everywhere
+    /// else, including a non-KDE Wayland session, since every step degrades
+    /// to `None` on failure). Exists because open-loop prediction of where
+    /// a given `move_relative` call actually lands has proven unreliable by
+    /// up to several hundred px for this window (measured live, not
+    /// theoretical) — no fixed `click_scale` fixes that, so instead:
+    /// measure the actual remaining error and send a corrective move, up to
+    /// a few times, adapting the pixels-moved-per-unit-sent ratio from what
+    /// the *previous* correction actually did rather than assuming a fixed
+    /// one (which is exactly what doesn't hold reliably here).
+    fn correct_with_ground_truth(&self, window: &GameWindow, x_frac: f32, y_frac: f32) {
+        let Ok(title) = window.title() else { return };
+        let Some((gx, gy, gw, gh)) = kde_ground_truth::window_frame_geometry(&title) else { return };
+        let target = (gx + x_frac as f64 * gw, gy + y_frac as f64 * gh);
+
+        let mut units_per_logical_px = 1.0_f64; // refined each pass from observed effect
+        for _ in 0..3 {
+            let Some((cx, cy)) = kde_ground_truth::cursor_pos() else { return };
+            let (err_x, err_y) = (target.0 - cx, target.1 - cy);
+            if err_x.abs() < 3.0 && err_y.abs() < 3.0 {
+                return; // already close enough
+            }
+            let send_x = (err_x * units_per_logical_px).round() as i32;
+            let send_y = (err_y * units_per_logical_px).round() as i32;
+            if send_x == 0 && send_y == 0 {
+                return;
+            }
+            if self.move_relative(send_x, send_y).is_err() {
+                return;
+            }
+            sleep(Duration::from_millis(200));
+
+            let Some((nx, ny)) = kde_ground_truth::cursor_pos() else { return };
+            let (moved_x, moved_y) = (nx - cx, ny - cy);
+            let sent_mag = ((send_x * send_x + send_y * send_y) as f64).sqrt();
+            let moved_mag = (moved_x * moved_x + moved_y * moved_y).sqrt();
+            if sent_mag > 1.0 && moved_mag > 0.5 {
+                units_per_logical_px = sent_mag / moved_mag;
+            }
+        }
+    }
 }
 
 impl Clicker for YdotoolClicker {
@@ -136,6 +180,14 @@ impl Clicker for YdotoolClicker {
         sleep(Duration::from_millis(150));
         self.move_relative(dx - dx / 2, dy - dy / 2)?;
         sleep(Duration::from_millis(250));
+
+        // If KWin ground truth is available (KDE only — no-op otherwise),
+        // measure and correct the actual remaining error. The open-loop
+        // move above has been measured to land anywhere from ~200 to
+        // ~600px off target for a small window-edge button, which no
+        // `click_scale` value fixes — see `correct_with_ground_truth`'s
+        // doc comment.
+        self.correct_with_ground_truth(window, x_frac, y_frac);
 
         // Verified live: the button doesn't accept a click after simply
         // *arriving* and sitting still, even after a long pause — a real

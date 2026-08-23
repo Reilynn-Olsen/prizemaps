@@ -23,6 +23,10 @@ impl GameWindow {
         Ok(window.map(|window| Self { window }))
     }
 
+    pub fn title(&self) -> Result<String> {
+        self.window.title().context("failed to read window title")
+    }
+
     /// Absolute screen bounds of the window: (x, y, width, height).
     pub fn bounds(&self) -> Result<(i32, i32, u32, u32)> {
         Ok((

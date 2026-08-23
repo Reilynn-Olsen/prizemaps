@@ -1,4 +1,7 @@
 mod enigo_backend;
+#[cfg(target_os = "linux")]
+mod kde_ground_truth;
+#[cfg(target_os = "linux")]
 mod ydotool;
 
 use anyhow::Result;
