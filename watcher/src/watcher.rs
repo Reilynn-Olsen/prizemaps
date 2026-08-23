@@ -96,10 +96,10 @@ fn capture_and_submit(
     clipboard: &mut Clipboard,
     uploader: &Uploader,
 ) -> Result<()> {
-    // The button we click to open the panel is a toggle, so if a previous
-    // attempt this cycle already opened it (e.g. we opened it fine but
-    // failed on a later step and got retried), clicking it again would
-    // close it right back. Only click if it looks closed.
+    // "Show Battle Log" is a toggle, so if a previous attempt this cycle
+    // already opened the panel (e.g. we opened it fine but failed on a
+    // later step and got retried), clicking it again would close it right
+    // back. Only click it if the panel looks closed.
     if !copy_button.matches(&window.screenshot()?) {
         clicker.click_at_fraction(window, show_log_button.def.click[0], show_log_button.def.click[1])?;
         sleep(AFTER_CLICK_DELAY);
@@ -116,10 +116,17 @@ fn capture_and_submit(
         if !opened {
             bail!("battle log panel didn't open (copy button never appeared) — not clicking blind");
         }
-
-        clicker.click_at_fraction(window, copy_button.def.click[0], copy_button.def.click[1])?;
-        sleep(AFTER_CLICK_DELAY);
     }
+
+    // Unlike the show-log button, "Copy to Clipboard" isn't a toggle, so
+    // clicking it is always safe — and clicking it unconditionally (not
+    // only right after opening the panel) guarantees the clipboard holds
+    // *this* log right before we read it, rather than trusting whatever
+    // happens to already be there if the panel was left open from earlier
+    // (e.g. a previous poll cycle, or literally anything else that wrote to
+    // the system clipboard in the meantime).
+    clicker.click_at_fraction(window, copy_button.def.click[0], copy_button.def.click[1])?;
+    sleep(AFTER_CLICK_DELAY);
 
     // The clipboard write on the game's side isn't always immediately
     // visible to us right after the click — observed live as a transient
@@ -152,6 +159,14 @@ fn capture_and_submit(
     }
 
     let log = battle_log::parse(&raw_text);
+    // The clipboard can end up holding something other than a battle log
+    // (observed live: whatever the user last copied elsewhere, if the copy
+    // click ever raced with unrelated clipboard activity) — every real
+    // capture has a coin flip and at least one turn, so their absence means
+    // this isn't a battle log at all. Bail rather than upload garbage.
+    if log.setup.coin_flip.is_none() && log.turns.is_empty() {
+        bail!("clipboard content doesn't look like a battle log (no coin flip or turns found) — not submitting");
+    }
     let perspective = log.perspective_player().map(str::to_string);
     let (result, opponent_name, player_deck_archetype, opponent_deck_archetype) = match &perspective {
         Some(me) => {
