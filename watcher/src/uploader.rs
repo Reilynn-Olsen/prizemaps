@@ -1,6 +1,6 @@
 use anyhow::{bail, Result};
 
-use crate::events::MatchBatch;
+use crate::events::BattleLogSubmission;
 
 pub struct Uploader {
     client: reqwest::blocking::Client,
@@ -17,13 +17,13 @@ impl Uploader {
         }
     }
 
-    pub fn upload_batch(&self, batch: &MatchBatch) -> Result<()> {
+    pub fn upload_battle_log(&self, submission: &BattleLogSubmission) -> Result<()> {
         let url = format!("{}/matches/ingest", self.base_url.trim_end_matches('/'));
         let resp = self
             .client
             .post(&url)
             .bearer_auth(&self.token)
-            .json(batch)
+            .json(submission)
             .send()?;
 
         if !resp.status().is_success() {

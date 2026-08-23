@@ -2,17 +2,10 @@ import { createHash } from "crypto";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-type IncomingEvent = {
-  sequence: number;
-  timestamp: string;
-  kind: string;
-  raw_line: string;
-  payload: unknown;
-};
-
 type IngestBody = {
   client_match_id: string;
-  events: IncomingEvent[];
+  captured_at: string;
+  raw_text: string;
 };
 
 export async function POST(req: Request) {
@@ -36,9 +29,9 @@ export async function POST(req: Request) {
   }
 
   const body = (await req.json()) as IngestBody;
-  if (!body.client_match_id || !Array.isArray(body.events)) {
+  if (!body.client_match_id || !body.raw_text) {
     return NextResponse.json(
-      { error: "client_match_id and events are required" },
+      { error: "client_match_id and raw_text are required" },
       { status: 400 },
     );
   }
@@ -46,7 +39,12 @@ export async function POST(req: Request) {
   const { data: match, error: matchError } = await supabase
     .from("matches")
     .upsert(
-      { user_id: tokenRow.user_id, client_match_id: body.client_match_id },
+      {
+        user_id: tokenRow.user_id,
+        client_match_id: body.client_match_id,
+        battle_log_text: body.raw_text,
+        ended_at: body.captured_at,
+      },
       { onConflict: "user_id,client_match_id" },
     )
     .select("id")
@@ -59,29 +57,10 @@ export async function POST(req: Request) {
     );
   }
 
-  if (body.events.length > 0) {
-    const rows = body.events.map((event) => ({
-      match_id: match.id,
-      sequence: event.sequence,
-      occurred_at: event.timestamp,
-      kind: event.kind,
-      raw_line: event.raw_line,
-      payload: event.payload,
-    }));
-
-    const { error: eventsError } = await supabase
-      .from("match_events")
-      .upsert(rows, { onConflict: "match_id,sequence" });
-
-    if (eventsError) {
-      return NextResponse.json({ error: eventsError.message }, { status: 500 });
-    }
-  }
-
   await supabase
     .from("api_tokens")
     .update({ last_used_at: new Date().toISOString() })
     .eq("token_hash", tokenHash);
 
-  return NextResponse.json({ match_id: match.id, events_ingested: body.events.length });
+  return NextResponse.json({ match_id: match.id });
 }

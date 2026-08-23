@@ -10,8 +10,27 @@ pub struct Config {
     pub api_base_url: String,
     /// Personal API token generated on the web app's dashboard.
     pub api_token: Option<String>,
-    /// Path to the Pokemon TCG Live log file being watched.
-    pub log_file_path: Option<PathBuf>,
+    /// Substring (case-insensitive) to match against window titles to find
+    /// the PTCGL game window.
+    #[serde(default = "default_window_title_hint")]
+    pub window_title_hint: String,
+    /// Linux/Wayland only: converts a click's fraction-of-window-size into
+    /// the relative mouse delta `ydotool` needs to send, since screenshot
+    /// pixels and cursor-positioning pixels aren't reliably the same space
+    /// under Wayland (output scaling) and ydotool has its own relative-
+    /// motion gain on top of that. No universal correct value — calibrate
+    /// per machine. See `platform::ydotool` for the full explanation.
+    /// Ignored on Windows/macOS/Linux-X11.
+    #[serde(default = "default_click_scale")]
+    pub click_scale: f32,
+}
+
+fn default_window_title_hint() -> String {
+    "Pokemon TCG Live".to_string()
+}
+
+fn default_click_scale() -> f32 {
+    1.0
 }
 
 impl Default for Config {
@@ -19,7 +38,8 @@ impl Default for Config {
         Self {
             api_base_url: "http://localhost:3000/api".to_string(),
             api_token: None,
-            log_file_path: None,
+            window_title_hint: default_window_title_hint(),
+            click_scale: default_click_scale(),
         }
     }
 }
@@ -58,5 +78,15 @@ impl Config {
 
     pub fn is_logged_in(&self) -> bool {
         self.api_token.is_some()
+    }
+
+    /// Directory holding calibrated template images + `templates.toml`,
+    /// produced by `tcg-watcher calibrate`.
+    pub fn templates_dir() -> Result<PathBuf> {
+        let dir = dirs::config_dir()
+            .context("could not determine OS config directory")?
+            .join("tcg-watcher")
+            .join("templates");
+        Ok(dir)
     }
 }

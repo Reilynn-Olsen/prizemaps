@@ -1,68 +1,161 @@
-use std::fs::File;
-use std::io::{BufRead, BufReader, Seek, SeekFrom};
 use std::path::Path;
-use std::sync::mpsc::channel;
+use std::thread::sleep;
 use std::time::Duration;
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
+use arboard::Clipboard;
 use chrono::Utc;
-use notify::{RecursiveMode, Watcher as _};
 use uuid::Uuid;
 
-use crate::events::{MatchBatch, MatchEvent};
+use crate::capture::GameWindow;
+use crate::detector::{Template, TemplateSet};
+use crate::events::BattleLogSubmission;
+use crate::platform::{self, Clicker};
 use crate::uploader::Uploader;
 
-pub fn watch(log_path: &Path, uploader: &Uploader) -> Result<()> {
-    let file = File::open(log_path)
-        .with_context(|| format!("failed to open log file {}", log_path.display()))?;
-    let mut reader = BufReader::new(file);
-    reader.seek(SeekFrom::End(0))?;
+const POLL_INTERVAL: Duration = Duration::from_secs(2);
+const AFTER_CLICK_DELAY: Duration = Duration::from_millis(800);
+const PANEL_OPEN_RETRIES: u32 = 5;
+const CLIPBOARD_READ_RETRIES: u32 = 5;
 
-    let match_id = Uuid::new_v4();
-    let mut sequence: u64 = 0;
+/// Polls for the PTCGL window, and once the post-match "Show Battle Log"
+/// button is on screen, clicks it, clicks "Copy to Clipboard", and uploads
+/// whatever landed in the clipboard. There's no game-state log to read (see
+/// the watcher README) — the button appearing *is* the match-over signal.
+pub fn watch(
+    window_title_hint: &str,
+    templates_dir: &Path,
+    click_scale: f32,
+    uploader: &Uploader,
+) -> Result<()> {
+    let templates = TemplateSet::load(templates_dir)?;
+    let show_log_button = templates
+        .find("show_battle_log_button")
+        .context("templates.toml is missing a `show_battle_log_button` template — run `tcg-watcher calibrate` first")?;
+    let copy_button = templates
+        .find("copy_to_clipboard_button")
+        .context("templates.toml is missing a `copy_to_clipboard_button` template — run `tcg-watcher calibrate` first")?;
 
-    let (tx, rx) = channel();
-    let mut fs_watcher = notify::recommended_watcher(tx)?;
-    fs_watcher.watch(log_path, RecursiveMode::NonRecursive)?;
+    let mut clicker = platform::default_clicker(click_scale)?;
+    let mut clipboard = Clipboard::new().context("failed to access system clipboard")?;
 
-    println!("watching {} (match id {match_id})", log_path.display());
+    // Debounce: once we've submitted the battle log for the post-match
+    // screen currently on-screen, don't resubmit until the button
+    // disappears again (i.e. the player moved on, so a new match could
+    // start next time it reappears).
+    let mut submitted_for_current_screen = false;
+
+    println!("watching for PTCGL matches (window title contains {window_title_hint:?})");
 
     loop {
-        match rx.recv_timeout(Duration::from_secs(5)) {
-            Ok(Ok(event)) if event.kind.is_modify() => {
-                let mut line = String::new();
-                let mut batch_events = Vec::new();
-                while reader.read_line(&mut line)? > 0 {
-                    batch_events.push(parse_line(&line, sequence));
-                    sequence += 1;
-                    line.clear();
-                }
-                if !batch_events.is_empty() {
-                    let batch = MatchBatch {
-                        client_match_id: match_id,
-                        events: batch_events,
-                    };
-                    if let Err(err) = uploader.upload_batch(&batch) {
-                        eprintln!("upload failed, will retry on next batch: {err:#}");
-                    }
-                }
+        let Some(window) = GameWindow::find(window_title_hint)? else {
+            submitted_for_current_screen = false;
+            sleep(POLL_INTERVAL);
+            continue;
+        };
+
+        let screenshot = match window.screenshot() {
+            Ok(shot) => shot,
+            Err(err) => {
+                eprintln!("screenshot failed, will retry: {err:#}");
+                sleep(POLL_INTERVAL);
+                continue;
             }
-            Ok(Ok(_)) => {}
-            Ok(Err(err)) => eprintln!("watch error: {err}"),
-            Err(_) => {}
+        };
+
+        if !show_log_button.matches(&screenshot) {
+            submitted_for_current_screen = false;
+            sleep(POLL_INTERVAL);
+            continue;
         }
+
+        if !submitted_for_current_screen {
+            match capture_and_submit(
+                &window,
+                show_log_button,
+                copy_button,
+                clicker.as_mut(),
+                &mut clipboard,
+                uploader,
+            ) {
+                Ok(()) => submitted_for_current_screen = true,
+                Err(err) => eprintln!("failed to capture battle log, will retry next cycle: {err:#}"),
+            }
+        }
+
+        sleep(POLL_INTERVAL);
     }
 }
 
-// Real log grammar is unknown until we capture a sample file; every line is
-// forwarded raw for now so the upload pipeline can be built end-to-end ahead
-// of the parser.
-fn parse_line(line: &str, sequence: u64) -> MatchEvent {
-    MatchEvent {
-        sequence,
-        timestamp: Utc::now(),
-        kind: "raw".to_string(),
-        raw_line: line.trim_end().to_string(),
-        payload: serde_json::Value::Null,
+fn capture_and_submit(
+    window: &GameWindow,
+    show_log_button: &Template,
+    copy_button: &Template,
+    clicker: &mut dyn Clicker,
+    clipboard: &mut Clipboard,
+    uploader: &Uploader,
+) -> Result<()> {
+    // The button we click to open the panel is a toggle, so if a previous
+    // attempt this cycle already opened it (e.g. we opened it fine but
+    // failed on a later step and got retried), clicking it again would
+    // close it right back. Only click if it looks closed.
+    if !copy_button.matches(&window.screenshot()?) {
+        clicker.click_at_fraction(window, show_log_button.def.click[0], show_log_button.def.click[1])?;
+        sleep(AFTER_CLICK_DELAY);
+
+        let mut opened = false;
+        for _ in 0..PANEL_OPEN_RETRIES {
+            let shot = window.screenshot()?;
+            if copy_button.matches(&shot) {
+                opened = true;
+                break;
+            }
+            sleep(AFTER_CLICK_DELAY);
+        }
+        if !opened {
+            bail!("battle log panel didn't open (copy button never appeared) — not clicking blind");
+        }
+
+        clicker.click_at_fraction(window, copy_button.def.click[0], copy_button.def.click[1])?;
+        sleep(AFTER_CLICK_DELAY);
     }
+
+    // The clipboard write on the game's side isn't always immediately
+    // visible to us right after the click — observed live as a transient
+    // "contents not available" error that clears up within a second.
+    let mut raw_text = String::new();
+    for attempt in 0..CLIPBOARD_READ_RETRIES {
+        match clipboard.get_text() {
+            Ok(text) => {
+                raw_text = text;
+                break;
+            }
+            Err(err) if attempt + 1 < CLIPBOARD_READ_RETRIES => {
+                eprintln!("clipboard not ready yet ({err:#}), retrying...");
+                sleep(AFTER_CLICK_DELAY);
+            }
+            Err(err) => return Err(err).context("failed to read clipboard"),
+        }
+    }
+    // PTCGL's clipboard write leaves stray uninitialized-buffer bytes after
+    // a NUL terminator (observed live: "...wins.\n\n\0eded. wins.\n\n\n" —
+    // leftover tail from whatever longer string previously occupied that
+    // buffer). Everything from the first NUL on is garbage, not log
+    // content, and a literal NUL in the JSON body breaks the server's
+    // parser.
+    if let Some(nul_pos) = raw_text.find('\0') {
+        raw_text.truncate(nul_pos);
+    }
+    if raw_text.trim().is_empty() {
+        bail!("clipboard was empty after clicking copy — not submitting");
+    }
+
+    let submission = BattleLogSubmission {
+        client_match_id: Uuid::new_v4(),
+        captured_at: Utc::now(),
+        raw_text,
+    };
+    uploader.upload_battle_log(&submission)?;
+    println!("submitted battle log (match id {})", submission.client_match_id);
+    Ok(())
 }

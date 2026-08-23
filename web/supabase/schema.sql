@@ -24,11 +24,22 @@ create table if not exists public.matches (
   player_deck_archetype text,
   opponent_deck_archetype text,
   result text not null default 'unknown' check (result in ('win', 'loss', 'tie', 'unknown')),
+  -- Full text of the battle log, copied from PTCGL's in-client "Show
+  -- Battle Log" / "Copy to Clipboard" buttons by the watcher. There's no
+  -- usable game-state log to parse structured events from (see
+  -- watcher/README), so this raw text is the source of truth for a match
+  -- until/unless we write a parser for it.
+  battle_log_text text,
   started_at timestamptz,
   ended_at timestamptz,
   created_at timestamptz not null default now(),
   unique (user_id, client_match_id)
 );
+
+-- Added after the initial table creation — `create table if not exists`
+-- above won't backfill this column on a database that already has
+-- `matches`, so add it explicitly (idempotent).
+alter table public.matches add column if not exists battle_log_text text;
 
 create table if not exists public.match_events (
   id bigint generated always as identity primary key,
