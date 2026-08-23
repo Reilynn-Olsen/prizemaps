@@ -42,13 +42,18 @@ const CORNER_RESET_MAGNITUDE: i32 = 50_000;
 ///
 /// `click_scale` folds both effects (the output's logical/physical ratio,
 /// and ydotool's own relative-motion gain) into one empirical constant:
-/// `send_delta = fraction_of_window * window_physical_size * click_scale`.
-/// It has no universal correct value — it depends on this machine's output
-/// scale and pointer acceleration settings. Calibrate it once per machine:
-/// pick a template with a known click fraction, try a `click_scale`, see
-/// how far off the click lands, adjust proportionally, repeat. `1.0` is
-/// the naive "screenshot pixels == cursor pixels" assumption and is a
-/// reasonable starting guess only on an unscaled (100%) display.
+/// `send_delta = absolute_screen_point * click_scale`, where
+/// `absolute_screen_point` is the target's *absolute* desktop position
+/// (window position + fraction of the window's size) — not just a fraction
+/// of the window's own size, since the corner-reset below clamps to the
+/// corner of the whole multi-monitor desktop, not of whatever monitor the
+/// window is on. It has no universal correct value — it depends on this
+/// machine's output scale and pointer acceleration settings. Calibrate it
+/// once per machine: pick a template with a known click fraction, try a
+/// `click_scale`, see how far off the click lands, adjust proportionally,
+/// repeat. `1.0` is the naive "screenshot pixels == cursor pixels"
+/// assumption and is a reasonable starting guess only on an unscaled (100%)
+/// display.
 pub struct YdotoolClicker {
     click_scale: f32,
 }
@@ -79,9 +84,15 @@ impl YdotoolClicker {
 
 impl Clicker for YdotoolClicker {
     fn click_at_fraction(&mut self, window: &GameWindow, x_frac: f32, y_frac: f32) -> Result<()> {
-        let (_, _, width, height) = window.bounds()?;
-        let dx = (x_frac * width as f32 * self.click_scale).round() as i32;
-        let dy = (y_frac * height as f32 * self.click_scale).round() as i32;
+        // Absolute screen point, not just a fraction of the window's own
+        // size — the corner-reset below clamps to the corner of the whole
+        // multi-monitor desktop, not the corner of whatever monitor the
+        // window happens to be on, so the window's own position has to be
+        // part of the scaled delta or the click can land on a different
+        // monitor entirely whenever the window isn't sitting at that corner.
+        let (win_x, win_y) = window.fraction_to_screen_point(x_frac, y_frac)?;
+        let dx = (win_x as f32 * self.click_scale).round() as i32;
+        let dy = (win_y as f32 * self.click_scale).round() as i32;
 
         self.move_relative(-CORNER_RESET_MAGNITUDE, -CORNER_RESET_MAGNITUDE)?;
         // A short pause here was necessary during live testing to get a
