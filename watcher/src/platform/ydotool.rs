@@ -114,13 +114,17 @@ impl Clicker for YdotoolClicker {
         let dy = (win_y as f32 * self.click_scale).round() as i32;
 
         self.reset_to_corner()?;
-        // A short pause here was necessary during live testing to get a
-        // consistent, reproducible delta out of the moves that follow —
-        // chaining ydotool relative moves with no gap between them measured
-        // differently each run, consistent with velocity-sensitive pointer
-        // acceleration reacting to how quickly the events arrive.
-        sleep(Duration::from_millis(250));
-
+        // No pause here, deliberately — sitting idle at the corner is what
+        // was triggering KDE's screen-edge action (Overview), confirmed via
+        // KWin's effects D-Bus API: the exact same reset followed by a
+        // pause showed `overview`/`screenedge` in `activeEffects`
+        // immediately after, and moving on right away never did across
+        // repeated trials. This is why `reset_to_corner` needed to be
+        // chunked into small steps (see its own doc comment) rather than
+        // one big jump in the first place — this only became reliable
+        // enough to consistently land on, and therefore trigger, the exact
+        // corner pixel after that fix.
+        //
         // Arriving in two steps rather than one single jump, verified live:
         // a single combined move landed within a couple of pixels of the
         // target (confirmed via ground truth) and still failed to register
