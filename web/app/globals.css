@@ -1,26 +1,99 @@
 @import "tailwindcss";
 
+/*
+ * Palette: dark-first (this is the primary experience — see
+ * app/dashboard/page.tsx), lavender (#E6E6FA) as the brand accent, status
+ * colors (win/loss) reserved and never reused for anything else. Structure
+ * follows the dataviz skill's reference palette (references/palette.md);
+ * hues are this app's own, not copied from the skill's default instance.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --surface-page: #f9f9f7;
+  --surface-card: #fcfcfb;
+  --surface-card-hover: #f3f1fa;
+  --border-hairline: rgba(11, 11, 11, 0.1);
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #898781;
+
+  --accent: #6b54c4; /* deepened lavender — readable on a light surface */
+  --accent-strong: #6b54c4; /* solid-fill buttons; same as --accent in light mode */
+  --accent-soft: #ece9fb;
+  --accent-ink: #ffffff;
+
+  --status-good: #0ca30c;
+  --status-good-soft: #e3f5e3;
+  --status-critical: #d03b3b;
+  --status-critical-soft: #fbe7e7;
+
+  /* Status pair validated: scripts/validate_palette.js "#0ca30c,#d03b3b"
+     passes lightness/chroma/contrast on both surfaces below; CVD
+     separation fails (red/green is an inherent deutan collision — the
+     skill's own reference pair, not avoidable by re-picking hexes), so
+     win/loss are never color-only here — always paired with a label. */
+  color-scheme: light;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--surface-page);
+  --color-foreground: var(--text-primary);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  --color-surface-page: var(--surface-page);
+  --color-surface-card: var(--surface-card);
+  --color-surface-card-hover: var(--surface-card-hover);
+  --color-border-hairline: var(--border-hairline);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
+
+  --color-status-good: var(--status-good);
+  --color-status-good-soft: var(--status-good-soft);
+  --color-status-critical: var(--status-critical);
+  --color-status-critical-soft: var(--status-critical-soft);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --surface-page: #0c0a10;
+    --surface-card: #16131d;
+    --surface-card-hover: #1c1826;
+    --border-hairline: rgba(255, 255, 255, 0.1);
+    --text-primary: #f5f3fa;
+    --text-secondary: #b8b3c7;
+    --text-muted: #8b8599;
+
+    /* E6E6FA (the brand lavender) works for text/links/glows on this dark
+       surface (contrast passes) but fails the chart chroma floor — it
+       reads as gray at that lightness, not lavender. --accent-strong is a
+       deeper, more saturated step for solid button fills; validated via
+       validate_palette.js "#8f7bdb" --mode dark --surface #16131d. */
+    --accent: #e6e6fa;
+    --accent-strong: #8f7bdb;
+    --accent-soft: #2a2438;
+    --accent-ink: #16131d; /* text on --accent-strong buttons */
+
+    --status-good: #0ca30c;
+    --status-good-soft: #163524;
+    --status-critical: #d03b3b;
+    --status-critical-soft: #3a1e1e;
+
+    color-scheme: dark;
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--surface-page);
+  color: var(--text-primary);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
 }

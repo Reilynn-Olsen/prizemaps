@@ -3,6 +3,7 @@
 import { Suspense, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { Wordmark } from "@/components/wordmark";
 
 export default function LoginPage() {
   return (
@@ -38,8 +39,8 @@ function LoginForm() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-4 p-6">
-      <h1 className="text-2xl font-semibold">Log in</h1>
-      <p className="text-sm text-neutral-500">
+      <Wordmark />
+      <p className="text-sm text-text-secondary">
         We&apos;ll email you a magic link — no password needed.
       </p>
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
@@ -49,21 +50,21 @@ function LoginForm() {
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           placeholder="you@example.com"
-          className="rounded border border-neutral-300 px-3 py-2"
+          className="rounded-lg border border-border-hairline bg-surface-card px-3 py-2 text-text-primary placeholder:text-text-muted"
         />
         <button
           type="submit"
           disabled={status === "sending"}
-          className="rounded bg-black px-3 py-2 text-white disabled:opacity-50"
+          className="rounded-lg bg-accent-strong px-3 py-2 text-sm font-medium text-accent-ink transition hover:opacity-90 disabled:opacity-50"
         >
           {status === "sending" ? "Sending..." : "Send magic link"}
         </button>
       </form>
       {status === "sent" && (
-        <p className="text-sm text-green-600">Check your email for the link.</p>
+        <p className="text-sm text-status-good">Check your email for the link.</p>
       )}
       {status === "error" && (
-        <p className="text-sm text-red-600">Something went wrong — try again.</p>
+        <p className="text-sm text-status-critical">Something went wrong — try again.</p>
       )}
     </main>
   );
