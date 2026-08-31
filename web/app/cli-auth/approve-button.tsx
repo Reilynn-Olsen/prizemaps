@@ -26,7 +26,7 @@ export function ApproveButton({ code }: { code: string }) {
   if (state === "done") {
     return (
       <p className="rounded-lg border border-green-300 bg-green-50 p-3 text-sm text-green-900 dark:border-green-400/30 dark:bg-green-950/30 dark:text-green-200">
-        Approved — you can close this tab and go back to your terminal.
+        Approved — you can close this window and go back to your terminal.
       </p>
     );
   }

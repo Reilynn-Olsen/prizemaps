@@ -18,8 +18,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Log in — opens your browser to approve. Pass a token to skip that
-    /// and set it directly (e.g. for scripted setups).
+    /// Log in — opens a small window to sign in and approve. Pass a token
+    /// to skip that and set it directly (e.g. for scripted setups).
     Login {
         token: Option<String>,
         #[arg(long)]
@@ -33,6 +33,15 @@ enum Commands {
     /// screenshot tool) for `show_battle_log_button` (visible right after a
     /// match ends) and `copy_to_clipboard_button` (visible once the battle
     /// log panel is open).
+    ///
+    /// PTCGL doesn't lay out these buttons at the same relative position on
+    /// every physical display — e.g. a laptop's built-in screen vs. an
+    /// external monitor it gets docked to can each need their own
+    /// calibration. Run this once per name *per physical setup you use* —
+    /// re-running it for a setup already calibrated updates just that one,
+    /// leaving others intact — and `watch` automatically uses whichever
+    /// calibration matches what's currently on screen, live, no restart
+    /// needed when you switch between already-calibrated setups.
     Calibrate {
         /// Template name: `show_battle_log_button` or `copy_to_clipboard_button`.
         name: String,
@@ -92,7 +101,7 @@ fn main() -> Result<()> {
             };
             let templates_dir = Config::templates_dir()?;
             let uploader = Uploader::new(config.api_base_url.clone(), token);
-            watcher::watch(&config.window_title_hint, &templates_dir, config.click_scale, &uploader)?;
+            watcher::watch(&mut config, &templates_dir, &uploader)?;
         }
         Commands::Calibrate {
             name,

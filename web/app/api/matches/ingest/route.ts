@@ -55,6 +55,32 @@ export async function POST(req: Request) {
     );
   }
 
+  // Content-level dedup. The watcher mints a fresh client_match_id per
+  // capture, so the (user_id, client_match_id) key below only catches
+  // retries of one capture — not the same match captured twice (watcher
+  // restarted while the post-match screen was still up, a flickering
+  // button, a double click). A full battle log is a complete turn-by-turn
+  // record, so byte-identical text is always the same game: if this exact
+  // log was already stored for this user in the last DEDUP_WINDOW_MS, hand
+  // back that match instead of inserting a duplicate. A genuine retry
+  // (same client_match_id) is excluded so it still flows through the
+  // idempotent upsert path and gets another chance to write its events.
+  const DEDUP_WINDOW_MS = 24 * 60 * 60 * 1000;
+  const logHash = createHash("sha256").update(body.raw_text).digest("hex");
+  const { data: priorUpload } = await supabase
+    .from("matches")
+    .select("id")
+    .eq("user_id", tokenRow.user_id)
+    .eq("battle_log_sha256", logHash)
+    .neq("client_match_id", body.client_match_id)
+    .gte("created_at", new Date(Date.now() - DEDUP_WINDOW_MS).toISOString())
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (priorUpload) {
+    return NextResponse.json({ match_id: priorUpload.id, duplicate: true });
+  }
+
   const { data: match, error: matchError } = await supabase
     .from("matches")
     .upsert(
@@ -62,6 +88,7 @@ export async function POST(req: Request) {
         user_id: tokenRow.user_id,
         client_match_id: body.client_match_id,
         battle_log_text: body.raw_text,
+        battle_log_sha256: logHash,
         ended_at: body.captured_at,
         result: body.result ?? "unknown",
         opponent_name: body.opponent_name ?? null,
@@ -74,6 +101,21 @@ export async function POST(req: Request) {
     .single();
 
   if (matchError || !match) {
+    // matches_user_log_hash_uniq: two uploads of the same log raced past
+    // the pre-check above (both SELECTed before either INSERT committed).
+    // The other one won — return its match instead of a 500.
+    if (matchError?.code === "23505") {
+      const { data: winner } = await supabase
+        .from("matches")
+        .select("id")
+        .eq("user_id", tokenRow.user_id)
+        .eq("battle_log_sha256", logHash)
+        .limit(1)
+        .maybeSingle();
+      if (winner) {
+        return NextResponse.json({ match_id: winner.id, duplicate: true });
+      }
+    }
     return NextResponse.json(
       { error: matchError?.message ?? "failed to create match" },
       { status: 500 },

@@ -1,9 +1,15 @@
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use reqwest::StatusCode;
 use serde::Deserialize;
+use tao::dpi::LogicalSize;
+use tao::event::{Event, WindowEvent};
+use tao::event_loop::{ControlFlow, EventLoopBuilder};
+use tao::platform::run_return::EventLoopExtRunReturn;
+use tao::window::WindowBuilder;
+use wry::WebViewBuilder;
 
 #[derive(Deserialize)]
 struct StartResponse {
@@ -18,9 +24,15 @@ struct PollResponse {
     token: Option<String>,
 }
 
-/// Browser-based login: start a pairing on the server, send the user to
-/// approve it, and poll until they do. Mirrors `gh auth login`'s device
-/// flow so nobody has to copy a raw token into a terminal.
+/// Sent from the background polling thread to the login window's event loop.
+enum LoginEvent {
+    Approved(String),
+    Failed(String),
+}
+
+/// Login: open a small window onto the web app's own `/cli-auth` + `/login`
+/// pages (same email box, same magic link) so nobody has to copy a raw API
+/// token into a terminal, and poll in the background until it's approved.
 pub fn interactive_login(api_base_url: &str) -> Result<String> {
     let client = reqwest::blocking::Client::new();
     let base = api_base_url.trim_end_matches('/');
@@ -34,49 +46,131 @@ pub fn interactive_login(api_base_url: &str) -> Result<String> {
         .json()
         .context("unexpected response starting login")?;
 
-    println!("Opening your browser to approve this login:\n  {}", start.verify_url);
-    println!("If it doesn't open automatically, open that link yourself.");
-    if open::that(&start.verify_url).is_err() {
-        println!("(couldn't open a browser automatically — copy the link above)");
-    }
+    let mut event_loop = EventLoopBuilder::<LoginEvent>::with_user_event().build();
+    let proxy = event_loop.create_proxy();
+
+    let window = WindowBuilder::new()
+        .with_title("Log in to Prize Map")
+        .with_inner_size(LogicalSize::new(420.0, 640.0))
+        .build(&event_loop)
+        .context("failed to open the login window")?;
+
+    let webview_builder = WebViewBuilder::new().with_url(&start.verify_url);
+
+    #[cfg(any(
+        target_os = "windows",
+        target_os = "macos",
+        target_os = "ios",
+        target_os = "android"
+    ))]
+    let _webview = webview_builder
+        .build(&window)
+        .context("failed to open the login page")?;
+    #[cfg(not(any(
+        target_os = "windows",
+        target_os = "macos",
+        target_os = "ios",
+        target_os = "android"
+    )))]
+    let _webview = {
+        use tao::platform::unix::WindowExtUnix;
+        use wry::WebViewBuilderExtUnix;
+        let vbox = window
+            .default_vbox()
+            .context("failed to prepare the login window")?;
+        webview_builder
+            .build_gtk(vbox)
+            .context("failed to open the login page")?
+    };
 
     let poll_url = format!("{base}/cli-auth/poll");
+    let poll_secret = start.poll_secret;
     let deadline = Instant::now() + Duration::from_secs(start.expires_in);
 
-    print!("Waiting for approval");
-    while Instant::now() < deadline {
-        sleep(Duration::from_secs(2));
-        print!(".");
-        use std::io::Write;
-        std::io::stdout().flush().ok();
+    std::thread::spawn(move || {
+        let client = reqwest::blocking::Client::new();
+        while Instant::now() < deadline {
+            sleep(Duration::from_secs(2));
 
-        let resp = client
-            .post(&poll_url)
-            .json(&serde_json::json!({ "poll_secret": start.poll_secret }))
-            .send()
-            .context("failed to poll login status")?;
+            let resp = match client
+                .post(&poll_url)
+                .json(&serde_json::json!({ "poll_secret": poll_secret }))
+                .send()
+            {
+                Ok(resp) => resp,
+                Err(_) => continue, // transient network hiccup — keep polling
+            };
 
-        match resp.status() {
-            StatusCode::GONE => bail!("\nlogin code expired — run `tcg-watcher login` again"),
-            StatusCode::NOT_FOUND => {
-                bail!("\nlogin code not recognized — run `tcg-watcher login` again")
+            match resp.status() {
+                StatusCode::GONE => {
+                    let _ = proxy.send_event(LoginEvent::Failed(
+                        "login code expired — run `tcg-watcher login` again".into(),
+                    ));
+                    return;
+                }
+                StatusCode::NOT_FOUND => {
+                    let _ = proxy.send_event(LoginEvent::Failed(
+                        "login code not recognized — run `tcg-watcher login` again".into(),
+                    ));
+                    return;
+                }
+                _ => {}
+            }
+
+            let poll: PollResponse = match resp.json() {
+                Ok(poll) => poll,
+                Err(_) => continue,
+            };
+
+            match poll.status.as_str() {
+                "approved" => {
+                    let event = match poll.token {
+                        Some(token) => LoginEvent::Approved(token),
+                        None => LoginEvent::Failed(
+                            "server approved login but returned no token".into(),
+                        ),
+                    };
+                    let _ = proxy.send_event(event);
+                    return;
+                }
+                "pending" => continue,
+                other => {
+                    let _ = proxy.send_event(LoginEvent::Failed(format!(
+                        "unexpected login status: {other}"
+                    )));
+                    return;
+                }
+            }
+        }
+        let _ = proxy.send_event(LoginEvent::Failed(
+            "timed out waiting for approval — run `tcg-watcher login` again".into(),
+        ));
+    });
+
+    let mut result: Option<Result<String>> = None;
+    event_loop.run_return(|event, _, control_flow| {
+        *control_flow = ControlFlow::Wait;
+        match event {
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            } => {
+                result = Some(Err(anyhow::anyhow!(
+                    "login window closed before approval"
+                )));
+                *control_flow = ControlFlow::Exit;
+            }
+            Event::UserEvent(LoginEvent::Approved(token)) => {
+                result = Some(Ok(token));
+                *control_flow = ControlFlow::Exit;
+            }
+            Event::UserEvent(LoginEvent::Failed(message)) => {
+                result = Some(Err(anyhow::anyhow!(message)));
+                *control_flow = ControlFlow::Exit;
             }
             _ => {}
         }
+    });
 
-        let poll: PollResponse = resp.json().context("unexpected response polling login")?;
-        match poll.status.as_str() {
-            "approved" => {
-                println!();
-                let Some(token) = poll.token else {
-                    bail!("server approved login but returned no token");
-                };
-                return Ok(token);
-            }
-            "pending" => continue,
-            other => bail!("\nunexpected login status: {other}"),
-        }
-    }
-
-    bail!("\ntimed out waiting for approval — run `tcg-watcher login` again")
+    result.unwrap_or_else(|| Err(anyhow::anyhow!("login window closed unexpectedly")))
 }

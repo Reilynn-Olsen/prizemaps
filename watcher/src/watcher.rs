@@ -5,30 +5,51 @@ use std::time::Duration;
 use anyhow::{bail, Context, Result};
 use arboard::Clipboard;
 use chrono::Utc;
+use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use crate::battle_log;
 use crate::capture::GameWindow;
+use crate::config::Config;
 use crate::detector::{Template, TemplateSet};
 use crate::events::BattleLogSubmission;
+use crate::letterbox;
 use crate::platform::{self, Clicker};
 use crate::uploader::Uploader;
+
+/// Clicks a point given as a fraction of the *content rect* (not the raw
+/// window — see `letterbox`) detected from `screenshot`, which must be a
+/// screenshot of `window` taken just before this call.
+fn click_at_content_fraction(
+    clicker: &mut dyn Clicker,
+    window: &GameWindow,
+    screenshot: &image::RgbaImage,
+    x_frac: f32,
+    y_frac: f32,
+) -> Result<()> {
+    let content = letterbox::detect(screenshot);
+    let (window_x_frac, window_y_frac) = content.to_window_fraction(x_frac, y_frac, screenshot.dimensions());
+    clicker.click_at_fraction(window, window_x_frac, window_y_frac)
+}
 
 const POLL_INTERVAL: Duration = Duration::from_secs(2);
 const AFTER_CLICK_DELAY: Duration = Duration::from_millis(800);
 const PANEL_OPEN_RETRIES: u32 = 5;
 const CLIPBOARD_READ_RETRIES: u32 = 5;
-// The copy button is small (~95x95px) and ydotool's relative motion on this
-// machine has been measured to land anywhere from ~200px to ~600px off
-// target run-to-run for the *same* computed delta — a positioning-formula
-// problem, not a timing one (verified live: even a deterministic
-// corner-reset followed by the same computed move landed in different spots
-// on consecutive identical attempts). Jittering only inside the button's
-// own tiny calibrated region did basically nothing — that spread (a few
-// tens of px) is negligible next to the noise itself (confirmed live: all
-// 8 attempts still missed). What actually needs to vary between attempts is
-// the *sent* target across a range comparable to the noise, and there need
-// to be enough attempts for that to plausibly land on target at least once.
+// The copy button is small (~95x95px). With the earlier ydotool-based
+// backend, this machine's relative motion measured landing anywhere from
+// ~200px to ~600px off target run-to-run for the *same* computed delta — a
+// positioning-formula problem, not a timing one (verified live: even a
+// deterministic corner-reset followed by the same computed move landed in
+// different spots on consecutive identical attempts). Jittering only inside
+// the button's own tiny calibrated region did basically nothing — that
+// spread (a few tens of px) is negligible next to noise that size (confirmed
+// live: all 8 attempts still missed). What actually needs to vary between
+// attempts is the *sent* target across a range comparable to the noise, and
+// there need to be enough attempts for that to plausibly land on target at
+// least once. Whether the portal-based backend (platform::portal) has the
+// same noise characteristics, less, or none is unverified — this retry
+// count/jitter radius hasn't been re-tuned against it yet.
 const COPY_CLICK_RETRIES: u32 = 25;
 /// How far a retry's click point can drift from the calibrated region
 /// (added to it, both directions), as a fraction of window size — sized to
@@ -40,12 +61,7 @@ const COPY_CLICK_JITTER_RADIUS: f32 = 0.12;
 /// button is on screen, clicks it, clicks "Copy to Clipboard", and uploads
 /// whatever landed in the clipboard. There's no game-state log to read (see
 /// the watcher README) — the button appearing *is* the match-over signal.
-pub fn watch(
-    window_title_hint: &str,
-    templates_dir: &Path,
-    click_scale: f32,
-    uploader: &Uploader,
-) -> Result<()> {
+pub fn watch(config: &mut Config, templates_dir: &Path, uploader: &Uploader) -> Result<()> {
     let templates = TemplateSet::load(templates_dir)?;
     let show_log_button = templates
         .find("show_battle_log_button")
@@ -54,7 +70,15 @@ pub fn watch(
         .find("copy_to_clipboard_button")
         .context("templates.toml is missing a `copy_to_clipboard_button` template — run `tcg-watcher calibrate` first")?;
 
-    let mut clicker = platform::default_clicker(click_scale)?;
+    let (mut clicker, new_restore_token) =
+        platform::default_clicker(config.click_scale, config.portal_restore_token.clone())?;
+    // Linux/Wayland only: persist the portal's restore token immediately
+    // (not just on clean exit — this loop runs until killed) so the next
+    // run can skip the one-time permission dialog.
+    if new_restore_token != config.portal_restore_token {
+        config.portal_restore_token = new_restore_token;
+        config.save()?;
+    }
     let mut clipboard = Clipboard::new().context("failed to access system clipboard")?;
 
     // Debounce: once we've submitted the battle log for the post-match
@@ -63,10 +87,10 @@ pub fn watch(
     // start next time it reappears).
     let mut submitted_for_current_screen = false;
 
-    println!("watching for PTCGL matches (window title contains {window_title_hint:?})");
+    println!("watching for PTCGL matches (window title contains {:?})", config.window_title_hint);
 
     loop {
-        let Some(window) = GameWindow::find(window_title_hint)? else {
+        let Some(window) = GameWindow::find(&config.window_title_hint)? else {
             submitted_for_current_screen = false;
             sleep(POLL_INTERVAL);
             continue;
@@ -89,6 +113,7 @@ pub fn watch(
 
         if !submitted_for_current_screen {
             match capture_and_submit(
+                config,
                 &window,
                 show_log_button,
                 copy_button,
@@ -105,7 +130,14 @@ pub fn watch(
     }
 }
 
+fn log_sha256(text: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(text.as_bytes());
+    format!("{:x}", hasher.finalize())
+}
+
 fn capture_and_submit(
+    config: &mut Config,
     window: &GameWindow,
     show_log_button: &Template,
     copy_button: &Template,
@@ -118,7 +150,8 @@ fn capture_and_submit(
     // later step and got retried), clicking it again would close it right
     // back. Only click it if the panel looks closed.
     if !copy_button.matches(&window.screenshot()?) {
-        clicker.click_at_fraction(window, show_log_button.def.click[0], show_log_button.def.click[1])?;
+        let shot = window.screenshot()?;
+        click_at_content_fraction(clicker, window, &shot, show_log_button.def.click[0], show_log_button.def.click[1])?;
         sleep(AFTER_CLICK_DELAY);
 
         let mut opened = false;
@@ -146,7 +179,8 @@ fn capture_and_submit(
     let mut capture: Option<(String, battle_log::BattleLog)> = None;
     for attempt in 0..COPY_CLICK_RETRIES {
         let (jx, jy) = jittered_point_in_region(region, attempt);
-        clicker.click_at_fraction(window, jx, jy)?;
+        let shot = window.screenshot()?;
+        click_at_content_fraction(clicker, window, &shot, jx, jy)?;
         sleep(AFTER_CLICK_DELAY);
 
         let mut raw_text = String::new();
@@ -200,6 +234,16 @@ fn capture_and_submit(
     let (raw_text, log) = capture.context(format!(
         "copy-to-clipboard click never produced a battle log after {COPY_CLICK_RETRIES} attempts"
     ))?;
+
+    // Same battle log we already uploaded last time — the post-match screen
+    // is still up and we've been restarted (or the button match flickered).
+    // The server would dedupe this anyway; skip the upload entirely.
+    let log_hash = log_sha256(&raw_text);
+    if config.last_uploaded_log_sha256.as_deref() == Some(log_hash.as_str()) {
+        println!("battle log unchanged since last upload — already submitted, skipping");
+        return Ok(());
+    }
+
     let perspective = log.perspective_player().map(str::to_string);
     let (result, opponent_name, player_deck_archetype, opponent_deck_archetype) = match &perspective {
         Some(me) => {
@@ -224,6 +268,13 @@ fn capture_and_submit(
         events,
     };
     uploader.upload_battle_log(&submission)?;
+    config.last_uploaded_log_sha256 = Some(log_hash);
+    if let Err(err) = config.save() {
+        // Non-fatal: the upload succeeded, and the server dedupes on log
+        // content too, so a missed hash write only risks one redundant
+        // round-trip on the next restart.
+        eprintln!("warning: couldn't persist last-uploaded log hash: {err:#}");
+    }
     println!(
         "submitted battle log (match id {}, result {}, {} events)",
         submission.client_match_id,

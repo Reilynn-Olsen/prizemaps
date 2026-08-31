@@ -7,7 +7,7 @@ export function Wordmark() {
         </svg>
       </span>
       <span className="text-text-primary">
-        TCG <span className="text-accent">Replay</span>
+        Prize <span className="text-accent">Map</span>
       </span>
     </span>
   );

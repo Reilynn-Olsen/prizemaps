@@ -4,6 +4,7 @@ use anyhow::{bail, Context, Result};
 
 use crate::capture::GameWindow;
 use crate::detector::{self, TemplateDef};
+use crate::letterbox;
 
 /// A pixel rectangle relative to the game window's top-left corner, as
 /// found by eyeballing a screenshot in any image viewer/editor.
@@ -29,7 +30,6 @@ pub fn calibrate(
     else {
         bail!("no window found with title containing {window_title_hint:?} — is PTCGL running?");
     };
-    let (_, _, width, height) = window.bounds()?;
     let screenshot = window.screenshot()?;
 
     let cropped =
@@ -43,23 +43,32 @@ pub fn calibrate(
         .save(&image_path)
         .with_context(|| format!("failed to save template image to {}", image_path.display()))?;
 
+    // Store region/click as fractions of the *content rect*, not the raw
+    // window — see `letterbox`'s doc comment for why a plain window
+    // fraction doesn't survive being calibrated on one display and run on
+    // another.
+    let content = letterbox::detect(&screenshot);
+    let (region_x_frac, region_y_frac) = content.to_content_fraction(region.x, region.y);
+    let (click_x_frac, click_y_frac) = content.to_content_fraction(click.0, click.1);
+
     let def = TemplateDef {
         name: name.to_string(),
         image: image_filename,
         region: [
-            region.x as f32 / width as f32,
-            region.y as f32 / height as f32,
-            region.w as f32 / width as f32,
-            region.h as f32 / height as f32,
+            region_x_frac,
+            region_y_frac,
+            region.w as f32 / content.w as f32,
+            region.h as f32 / content.h as f32,
         ],
-        click: [
-            click.0 as f32 / width as f32,
-            click.1 as f32 / height as f32,
-        ],
+        click: [click_x_frac, click_y_frac],
         threshold,
     };
     detector::upsert_template_def(templates_dir, def)?;
 
+    println!(
+        "detected content rect {}x{} at ({}, {}) inside the {}x{} window",
+        content.w, content.h, content.x, content.y, screenshot.width(), screenshot.height()
+    );
     println!("saved template {name:?} -> {}", image_path.display());
     println!("updated {}", templates_dir.join("templates.toml").display());
     Ok(())

@@ -1,16 +1,31 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { matchTitle } from "@/lib/match-title";
 import { computeStats } from "@/lib/stats";
-import { StatTile } from "@/components/stat-tile";
+import { computeUserMatchups } from "@/lib/matchups";
+import { computeUserDeckTrends } from "@/lib/deck-trends";
+import { computeUserPlayDraw } from "@/lib/play-draw";
 import { ArchetypeWinChart } from "@/components/archetype-win-chart";
+import { MatchupExplorer } from "@/components/matchup-explorer";
+import { DeckTrendChart } from "@/components/deck-trend-chart";
+import { PlayDrawSplits } from "@/components/play-draw-splits";
 import { Wordmark } from "@/components/wordmark";
-import { TokenGenerator } from "./token-generator";
+import { TopoBackground } from "@/components/topo-background";
+import { LAUNCHER_URL } from "@/lib/links";
 
-const RESULT_STYLES: Record<string, string> = {
-  win: "border-l-status-good",
-  loss: "border-l-status-critical",
+export const metadata: Metadata = {
+  title: "Dashboard — Prize Map",
 };
+
+const RESULT_LABEL: Record<string, string> = { win: "W", loss: "L" };
+const RESULT_LABEL_STYLES: Record<string, string> = {
+  win: "text-status-good",
+  loss: "text-status-critical",
+};
+
+const NO_MATCHES_COPY = "No matches uploaded yet — they'll appear here once the watcher sends data.";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -22,18 +37,22 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  const { data: statsRows } = await supabase
+  const { data: statsRows, error: statsError } = await supabase
     .from("matches")
     .select("result, player_deck_archetype")
     .limit(500);
 
-  const { data: recentMatches } = await supabase
+  const { data: recentMatches, error: recentError } = await supabase
     .from("matches")
-    .select("id, opponent_name, player_deck_archetype, opponent_deck_archetype, result, created_at")
+    .select("id, player_deck_archetype, opponent_deck_archetype, result, created_at")
     .order("created_at", { ascending: false })
     .limit(15);
 
   const stats = computeStats(statsRows ?? []);
+  const hasMatches = stats.totalMatches > 0;
+  const userMatchups = hasMatches ? await computeUserMatchups(supabase) : null;
+  const userTrends = hasMatches ? await computeUserDeckTrends(supabase) : null;
+  const userPlayDraw = hasMatches ? await computeUserPlayDraw(supabase) : null;
 
   return (
     <main className="mx-auto max-w-3xl p-6">
@@ -42,79 +61,129 @@ export default async function DashboardPage() {
         <p className="text-sm text-text-secondary">{user.email}</p>
       </header>
 
-      <section className="mt-8">
-        <h1 className="text-lg font-medium text-text-primary">Stats</h1>
-        {stats.totalMatches === 0 ? (
-          <p className="mt-2 text-sm text-text-muted">
-            No matches uploaded yet — stats will appear here once the watcher sends data.
+      {!hasMatches && (
+        <section className="mt-8 rounded-xl border border-border-hairline bg-surface-card p-4">
+          <h2 className="text-sm font-medium text-text-primary">Connect the launcher</h2>
+          <p className="mt-1 text-sm text-text-muted">
+            Matches show up here automatically once the launcher is running. Install it, then{" "}
+            <code className="rounded bg-surface-card-hover px-1 py-0.5 text-xs">tcg-watcher login</code> and{" "}
+            <code className="rounded bg-surface-card-hover px-1 py-0.5 text-xs">tcg-watcher watch</code> while you play.
           </p>
-        ) : (
-          <>
-            <div className="mt-3 grid grid-cols-3 gap-3">
-              <StatTile label="Matches" value={String(stats.totalMatches)} />
-              <StatTile
-                label="Win rate"
-                value={stats.winRate === null ? "—" : `${Math.round(stats.winRate * 100)}%`}
-                sublabel={`${stats.wins}W–${stats.losses}L`}
-              />
-              <StatTile
-                label="Top deck"
-                value={stats.byArchetype[0]?.archetype ?? "—"}
-                sublabel={stats.byArchetype[0] ? `${stats.byArchetype[0].total} games` : undefined}
-              />
-            </div>
-            <div className="mt-4 rounded-xl border border-border-hairline bg-surface-card p-4">
-              <h2 className="mb-3 text-sm font-medium text-text-secondary">Win rate by deck</h2>
-              <ArchetypeWinChart data={stats.byArchetype} />
-            </div>
-          </>
-        )}
+          <a
+            href={LAUNCHER_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-3 inline-block rounded-lg bg-accent-strong px-4 py-2 text-sm font-medium text-accent-ink transition hover:opacity-90"
+          >
+            Install the launcher →
+          </a>
+        </section>
+      )}
+
+      {/* HERO STAT — win rate leads, everything else is secondary */}
+      <section className="relative mt-8 overflow-hidden border-b border-border-hairline">
+        <TopoBackground />
+        <div className="relative flex items-end justify-between gap-8 pb-6">
+          <div>
+            <p className="text-xs text-text-muted">Win rate</p>
+            <p className="mt-1 font-display text-6xl text-accent-strong">
+              {stats.winRate === null ? "—" : `${Math.round(stats.winRate * 100)}%`}
+            </p>
+            <p className="mt-1 text-xs text-text-muted tabular-nums">
+              {stats.wins}W–{stats.losses}L across {stats.totalMatches} matches
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-text-muted">Top deck</p>
+            <p className="mt-1 text-lg text-text-primary">{stats.byArchetype[0]?.archetype ?? "—"}</p>
+            {stats.byArchetype[0] && (
+              <p className="text-xs text-text-muted tabular-nums">{stats.byArchetype[0].total} games</p>
+            )}
+          </div>
+        </div>
       </section>
 
-      <section className="mt-8">
-        <h2 className="text-lg font-medium text-text-primary">Watcher setup</h2>
-        <p className="mt-1 text-sm text-text-secondary">
-          Generate a token, then run{" "}
-          <code className="rounded bg-surface-card-hover px-1 py-0.5 font-mono text-text-primary">
-            tcg-watcher login &lt;token&gt;
-          </code>{" "}
-          on your machine.
-        </p>
-        <TokenGenerator />
+      <section className="mt-6 rounded-xl border border-border-hairline bg-surface-card p-4">
+        <h2 className="mb-3 text-sm font-medium text-text-secondary">Win rate by deck</h2>
+        <ArchetypeWinChart data={stats.byArchetype} />
       </section>
+
+      {userPlayDraw && (
+        <section className="mt-6 rounded-xl border border-border-hairline bg-surface-card p-4">
+          <h2 className="mb-3 text-sm font-medium text-text-secondary">On the play vs. on the draw</h2>
+          <PlayDrawSplits {...userPlayDraw} />
+        </section>
+      )}
+
+      {userTrends && (
+        <section className="mt-6 rounded-xl border border-border-hairline bg-surface-card p-4">
+          <DeckTrendChart {...userTrends} scopeLabel="across your matches" padded={false} />
+        </section>
+      )}
+
+      {userMatchups && (
+        <section className="mt-6 rounded-xl border border-border-hairline bg-surface-card p-4">
+          <MatchupExplorer {...userMatchups} scopeLabel="across your matches" padded={false} />
+        </section>
+      )}
+
+      {statsError && (
+        <p className="mt-4 text-sm text-status-critical">
+          Couldn&apos;t load stats — try refreshing. If this keeps happening, reconnect the watcher.
+        </p>
+      )}
 
       <section className="mt-8 pb-10">
         <h2 className="text-lg font-medium text-text-primary">Recent matches</h2>
-        {!recentMatches || recentMatches.length === 0 ? (
-          <p className="mt-2 text-sm text-text-muted">
-            No matches uploaded yet — they&apos;ll appear here once the watcher sends data.
+        {recentError ? (
+          <p className="mt-2 text-sm text-status-critical">
+            Couldn&apos;t load recent matches — try refreshing.
           </p>
+        ) : !recentMatches || recentMatches.length === 0 ? (
+          <p className="mt-2 text-sm text-text-muted">{NO_MATCHES_COPY}</p>
         ) : (
           <ul className="mt-3 flex flex-col gap-2">
             {recentMatches.map((match) => (
-              <li
-                key={match.id}
-                className={`rounded-lg border border-border-hairline border-l-4 bg-surface-card px-3 py-2.5 ${
-                  RESULT_STYLES[match.result] ?? "border-l-border-hairline"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="truncate text-sm text-text-primary">
-                    {matchTitle({
-                      playerArchetype: match.player_deck_archetype,
-                      opponentName: match.opponent_name,
-                      opponentArchetype: match.opponent_deck_archetype,
-                    })}
-                  </p>
+              <li key={match.id} className="rounded-lg border border-border-hairline bg-surface-card">
+                <Link
+                  href={`/matches/${match.id}`}
+                  className="flex items-center justify-between gap-3 px-3 py-2.5 hover:bg-surface-card-hover"
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span
+                      className={`shrink-0 font-mono text-xs font-medium ${
+                        RESULT_LABEL_STYLES[match.result] ?? "text-text-muted"
+                      }`}
+                      aria-label={match.result}
+                    >
+                      {RESULT_LABEL[match.result] ?? "—"}
+                    </span>
+                    <p className="truncate text-sm text-text-primary">
+                      {matchTitle({
+                        playerArchetype: match.player_deck_archetype,
+                        opponentArchetype: match.opponent_deck_archetype,
+                      })}
+                    </p>
+                  </span>
                   <span className="shrink-0 font-mono text-xs text-text-muted tabular-nums">
                     {new Date(match.created_at).toLocaleDateString()}
                   </span>
-                </div>
+                </Link>
               </li>
             ))}
           </ul>
         )}
       </section>
+
+      {hasMatches && (
+        <p className="pb-10 text-xs text-text-muted">
+          Playing on another machine?{" "}
+          <a href={LAUNCHER_URL} target="_blank" rel="noreferrer" className="underline hover:text-text-secondary">
+            Install the launcher
+          </a>{" "}
+          there too.
+        </p>
+      )}
     </main>
   );
 }

@@ -1,8 +1,9 @@
 //! Best-effort cursor-position / window-geometry ground truth via KWin's
-//! scripting API, used to *correct* otherwise-open-loop `ydotool` relative
-//! motion — see `ydotool.rs`'s module doc comment for why open-loop
-//! prediction alone isn't reliable enough for a small click target on this
-//! machine. KDE-only, and every function here degrades to `None` on any
+//! scripting API, used to *correct* otherwise-open-loop relative pointer
+//! motion (originally built against `ydotool`'s relative motion, now reused
+//! by `portal.rs` — see its module doc comment) — open-loop prediction
+//! alone wasn't reliable enough for a small click target on this machine.
+//! KDE-only, and every function here degrades to `None` on any
 //! failure (missing `qdbus6`, non-KDE session, scripting disabled, no
 //! journal access, etc.), so callers must have a working fallback — this is
 //! a precision boost where available, not a requirement.

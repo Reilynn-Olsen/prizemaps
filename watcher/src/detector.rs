@@ -5,17 +5,26 @@ use image::imageops::{self, FilterType};
 use image::RgbaImage;
 use serde::{Deserialize, Serialize};
 
+use crate::letterbox;
+
 /// One calibrated UI element: a screen region to compare against a saved
-/// reference crop, and where to click if it matches. Fractions of the
-/// window's width/height rather than raw pixels, so calibration data
-/// survives the window being resized.
+/// reference crop, and where to click if it matches. Region/click are
+/// fractions (0.0..=1.0) of the game's actual *content rect* — see
+/// `letterbox` — not of the raw window. PTCGL keeps its UI at a fixed
+/// aspect ratio and pads the rest of an odd-shaped window with black bars
+/// rather than stretching its layout to fill it, so a fraction of the
+/// window itself lands in a different place depending on the window's own
+/// aspect ratio (e.g. a laptop's built-in display vs. an external monitor
+/// it gets docked to typically differ). Calibrating and matching both
+/// against the detected content rect instead makes one calibration valid
+/// on any window shape, with no per-setup recalibration needed.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TemplateDef {
     pub name: String,
     pub image: String,
-    /// [x, y, w, h] as fractions (0.0..=1.0) of the window's size.
+    /// [x, y, w, h] as fractions (0.0..=1.0) of the content rect.
     pub region: [f32; 4],
-    /// [x, y] as fractions of the window's size — where to click when this
+    /// [x, y] as fractions of the content rect — where to click when this
     /// template matches.
     pub click: [f32; 2],
     /// Similarity score (0.0..=1.0) required to count as a match.
@@ -102,8 +111,8 @@ impl TemplateSet {
 }
 
 impl Template {
-    /// True if the calibrated region of `screenshot` is similar enough to
-    /// this template's reference image.
+    /// True if the calibrated region of `screenshot`'s content rect is
+    /// similar enough to this template's reference image.
     pub fn matches(&self, screenshot: &RgbaImage) -> bool {
         self.similarity(screenshot) >= self.def.threshold
     }
@@ -116,12 +125,13 @@ impl Template {
 
     fn similarity(&self, screenshot: &RgbaImage) -> f32 {
         let (width, height) = screenshot.dimensions();
+        let content = letterbox::detect(screenshot);
         let [x_frac, y_frac, w_frac, h_frac] = self.def.region;
 
-        let x = ((x_frac * width as f32).round() as u32).min(width.saturating_sub(1));
-        let y = ((y_frac * height as f32).round() as u32).min(height.saturating_sub(1));
-        let w = ((w_frac * width as f32).round().max(1.0) as u32).min(width - x);
-        let h = ((h_frac * height as f32).round().max(1.0) as u32).min(height - y);
+        let x = (content.x + (x_frac * content.w as f32).round() as u32).min(width.saturating_sub(1));
+        let y = (content.y + (y_frac * content.h as f32).round() as u32).min(height.saturating_sub(1));
+        let w = ((w_frac * content.w as f32).round().max(1.0) as u32).min(width - x);
+        let h = ((h_frac * content.h as f32).round().max(1.0) as u32).min(height - y);
 
         let cropped = imageops::crop_imm(screenshot, x, y, w, h).to_image();
         let resized = if cropped.dimensions() == self.reference.dimensions() {

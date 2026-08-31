@@ -5,7 +5,7 @@ use super::Clicker;
 use crate::capture::GameWindow;
 
 /// Windows/macOS everywhere, Linux only when running under X11 (enigo has
-/// no supported Wayland backend, see `platform::ydotool`).
+/// no supported Wayland backend, see `platform::portal`).
 pub struct EnigoClicker(Enigo);
 
 impl EnigoClicker {

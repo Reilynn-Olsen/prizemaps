@@ -15,14 +15,27 @@ pub struct Config {
     #[serde(default = "default_window_title_hint")]
     pub window_title_hint: String,
     /// Linux/Wayland only: converts a click's fraction-of-window-size into
-    /// the relative mouse delta `ydotool` needs to send, since screenshot
-    /// pixels and cursor-positioning pixels aren't reliably the same space
-    /// under Wayland (output scaling) and ydotool has its own relative-
-    /// motion gain on top of that. No universal correct value — calibrate
-    /// per machine. See `platform::ydotool` for the full explanation.
-    /// Ignored on Windows/macOS/Linux-X11.
+    /// the relative mouse delta sent via the desktop portal, since
+    /// screenshot pixels and cursor-positioning pixels aren't reliably the
+    /// same space under Wayland (output scaling) and the portal's own
+    /// relative-motion reporting may have its own gain on top of that (still
+    /// being verified — see `platform::portal`). No universal correct
+    /// value — calibrate per machine. Ignored on Windows/macOS/Linux-X11.
     #[serde(default = "default_click_scale")]
     pub click_scale: f32,
+    /// Linux/Wayland only: the xdg-desktop-portal RemoteDesktop session's
+    /// restore token. Lets the portal skip the one-time "let this app
+    /// control your input" permission dialog on future runs — see
+    /// `platform::portal`. `None` until the first successful `watch` run.
+    #[serde(default)]
+    pub portal_restore_token: Option<String>,
+    /// SHA-256 (hex) of the last battle log successfully uploaded. Persisted
+    /// so a watcher restart while the same post-match screen is still up
+    /// doesn't re-upload the match the in-memory debounce would have caught.
+    /// The server dedupes on log content too — this just avoids the wasted
+    /// round-trip. `None` until the first successful upload.
+    #[serde(default)]
+    pub last_uploaded_log_sha256: Option<String>,
 }
 
 fn default_window_title_hint() -> String {
@@ -40,6 +53,8 @@ impl Default for Config {
             api_token: None,
             window_title_hint: default_window_title_hint(),
             click_scale: default_click_scale(),
+            portal_restore_token: None,
+            last_uploaded_log_sha256: None,
         }
     }
 }

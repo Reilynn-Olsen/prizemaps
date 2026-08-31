@@ -4,6 +4,7 @@ pub mod capture;
 pub mod config;
 pub mod detector;
 pub mod events;
+pub mod letterbox;
 pub mod login;
 pub mod platform;
 pub mod uploader;

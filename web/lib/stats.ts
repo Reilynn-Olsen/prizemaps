@@ -1,3 +1,5 @@
+import { displayArchetype } from "@/lib/archetype-name";
+
 export type MatchForStats = {
   result: string;
   player_deck_archetype: string | null;
@@ -31,11 +33,12 @@ export function computeStats(matches: MatchForStats[]): OverallStats {
     if (isWin) wins++;
     if (isLoss) losses++;
 
-    if (match.player_deck_archetype && (isWin || isLoss)) {
-      const entry = byArchetype.get(match.player_deck_archetype) ?? { wins: 0, losses: 0 };
+    const archetype = displayArchetype(match.player_deck_archetype); // player-facing name — see lib/archetype-name.ts
+    if (archetype && (isWin || isLoss)) {
+      const entry = byArchetype.get(archetype) ?? { wins: 0, losses: 0 };
       if (isWin) entry.wins++;
       if (isLoss) entry.losses++;
-      byArchetype.set(match.player_deck_archetype, entry);
+      byArchetype.set(archetype, entry);
     }
   }
 

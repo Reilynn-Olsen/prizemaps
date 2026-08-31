@@ -41,6 +41,21 @@ create table if not exists public.matches (
 -- `matches`, so add it explicitly (idempotent).
 alter table public.matches add column if not exists battle_log_text text;
 
+-- SHA-256 (hex) of battle_log_text. The watcher generates a fresh
+-- client_match_id per capture, so that key only dedupes retries of one
+-- capture — not the same match captured twice (watcher restart while the
+-- post-match screen is still up, a flickering "Show Battle Log" button, a
+-- double click, two watcher processes). A full battle log is a complete
+-- turn-by-turn record, so byte-identical text is always the same game: one
+-- (user, log) is one match, enforced here. NULLs are distinct in Postgres
+-- unique indexes, so pre-existing rows with no hash yet don't collide —
+-- backfill them via scripts/reparse-matches.mjs. The ingest route also
+-- pre-checks (with a time window) so the common case gets a clean response
+-- instead of a caught constraint error; this index is the race backstop.
+alter table public.matches add column if not exists battle_log_sha256 text;
+create unique index if not exists matches_user_log_hash_uniq
+  on public.matches (user_id, battle_log_sha256);
+
 create table if not exists public.match_events (
   id bigint generated always as identity primary key,
   match_id uuid not null references public.matches (id) on delete cascade,

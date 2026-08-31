@@ -4,10 +4,22 @@
 // Usage: cargo run --example test_detector -- <image.png>
 
 use tcg_watcher::detector::TemplateSet;
+use tcg_watcher::letterbox;
 
 fn main() -> anyhow::Result<()> {
     let path = std::env::args().nth(1).expect("usage: test_detector <image.png>");
     let screenshot = image::open(&path)?.to_rgba8();
+
+    let content = letterbox::detect(&screenshot);
+    println!(
+        "detected content rect {}x{} at ({}, {}) inside the {}x{} image",
+        content.w,
+        content.h,
+        content.x,
+        content.y,
+        screenshot.width(),
+        screenshot.height()
+    );
 
     let templates_dir = dirs::config_dir().unwrap().join("tcg-watcher").join("templates");
     let templates = TemplateSet::load(&templates_dir)?;
