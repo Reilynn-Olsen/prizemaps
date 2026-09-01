@@ -104,13 +104,13 @@ pub fn interactive_login(api_base_url: &str) -> Result<String> {
             match resp.status() {
                 StatusCode::GONE => {
                     let _ = proxy.send_event(LoginEvent::Failed(
-                        "login code expired — run `tcg-watcher login` again".into(),
+                        "login code expired — run `prize-maps login` again".into(),
                     ));
                     return;
                 }
                 StatusCode::NOT_FOUND => {
                     let _ = proxy.send_event(LoginEvent::Failed(
-                        "login code not recognized — run `tcg-watcher login` again".into(),
+                        "login code not recognized — run `prize-maps login` again".into(),
                     ));
                     return;
                 }
@@ -143,7 +143,7 @@ pub fn interactive_login(api_base_url: &str) -> Result<String> {
             }
         }
         let _ = proxy.send_event(LoginEvent::Failed(
-            "timed out waiting for approval — run `tcg-watcher login` again".into(),
+            "timed out waiting for approval — run `prize-maps login` again".into(),
         ));
     });
 

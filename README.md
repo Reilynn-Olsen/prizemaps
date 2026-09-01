@@ -33,7 +33,7 @@ processes, so Linux/Wayland goes through `xdg-desktop-portal`'s
 RemoteDesktop interface instead; see `watcher/src/platform/portal.rs`'s doc
 comment). This needs no host setup — no daemon to install, no group
 membership, no service to enable — just a one-time native system permission
-dialog the first time `tcg-watcher watch` runs, which the portal itself
+dialog the first time `prize-maps watch` runs, which the portal itself
 shows. The session is remembered afterward (`portal_restore_token` in
 `config.toml`) so it doesn't ask again.
 
@@ -44,48 +44,48 @@ crops and regions for both post-match buttons
 Because regions are stored as fractions of the detected *content rect*
 (next paragraph), which live measurements show is stable across resolution
 and window aspect ratio, that one capture is a usable default on any
-display. `tcg-watcher watch` uses it out of the box.
+display. `prize-maps watch` uses it out of the box.
 
-`tcg-watcher calibrate` is the **override** for cases the defaults don't
+`prize-maps calibrate` is the **override** for cases the defaults don't
 cover — a new game version moving a button, a different UI language/theme
 changing its art, an unusual layout. Run against a real, running PTCGL
-match: `tcg-watcher calibrate <name> --region X,Y,W,H [--click X,Y]
+match: `prize-maps calibrate <name> --region X,Y,W,H [--click X,Y]
 [--threshold 0.9]`, for `show_battle_log_button` and/or
-`copy_to_clipboard_button`. To get the pixel coordinates, run `tcg-watcher
+`copy_to_clipboard_button`. To get the pixel coordinates, run `prize-maps
 dump-window` (add `--list` if the window isn't found) — it saves a PNG crop
 of just the game window and prints its bounds and detected content rect.
 Open that PNG in any image editor and read off the button's rectangle: X,Y
 of its top-left corner, then W,H. Coordinates measured in that crop are
 already window-relative, which is what `--region` expects. Calibrated
-templates land in `<config>/tcg-watcher/templates/` and override the
-bundled default of the same name; `tcg-watcher status` shows which is in
+templates land in `<config>/prize-maps/templates/` and override the
+bundled default of the same name; `prize-maps status` shows which is in
 use.
 
 PTCGL renders its own UI at a fixed 16:9 aspect ratio and pads the rest of
 an odd-shaped window with black bars rather than stretching to fill it —
 confirmed live: a 2880x1920 window (3:2) gets exactly 150px black bars top
-and bottom, leaving a 2880x1620 (16:9) content area. `tcg-watcher calibrate`
+and bottom, leaving a 2880x1620 (16:9) content area. `prize-maps calibrate`
 detects that content rect itself (`watcher/src/letterbox.rs`) and stores
 region/click as fractions of *it*, not of the raw window, so one
 calibration is valid on any window shape — no separate calibration needed
 per monitor/aspect ratio.
 
 On Linux/Wayland specifically, also set `click_scale` in
-`~/.config/tcg-watcher/config.toml` (default `1.0`) — see the doc comment on
+`~/.config/prize-maps/config.toml` (default `1.0`) — see the doc comment on
 `watcher/src/platform/portal.rs` for why and how to calibrate it; it's a
 per-machine constant, not a universal one.
 
 ## How the pieces connect
 
-1. A player runs `tcg-watcher login` once. It opens a small embedded window
+1. A player runs `prize-maps login` once. It opens a small embedded window
    onto the web app's own login pages (`/cli-auth`, `/login` — Supabase
    Auth, email magic link), so there's no token to copy by hand. Approving
    there mints a personal API token, which the watcher polls for and stores.
 2. The token is hashed server-side and stored in `api_tokens`; the raw token
    only ever lives in the watcher's local config file
-   (`~/.config/tcg-watcher/config.toml`).
-3. `tcg-watcher calibrate ...` (see above) captures the button templates,
-   then `tcg-watcher watch` runs the detect/click/upload loop, POSTing each
+   (`~/.config/prize-maps/config.toml`).
+3. `prize-maps calibrate ...` (see above) captures the button templates,
+   then `prize-maps watch` runs the detect/click/upload loop, POSTing each
    captured battle log to `POST /api/matches/ingest`, authenticated with
    `Authorization: Bearer <token>`.
 4. That route (using the Supabase service-role key) validates the token,
@@ -178,17 +178,17 @@ The dev machine is Linux and the watcher links Win32 APIs (`windows-rs` via
    **watcher-windows** workflow manually (`gh workflow run
    watcher-windows.yml`), or push a `watcher-v*` tag to also cut a GitHub
    Release.
-2. Download `tcg-watcher-windows-x64` from the run's artifacts (or the
-   release) and unzip `tcg-watcher.exe`. It targets `x86_64-pc-windows-msvc`.
+2. Download `prize-maps-windows-x64` from the run's artifacts (or the
+   release) and unzip `prize-maps.exe`. It targets `x86_64-pc-windows-msvc`.
 3. The `.exe` is unsigned, so SmartScreen shows "Windows protected your PC"
    on first run — click **More info -> Run anyway**.
 4. Unlike Linux/macOS there's no permission prompt: `enigo` synthetic
    clicks and `xcap` window capture work without a TCC/portal grant, and
    there's no `click_scale` step. The `login` window needs the WebView2
    runtime, which ships with Windows 11 and current Windows 10.
-5. `tcg-watcher.exe login`, then `calibrate ...` against a real match, then
+5. `prize-maps.exe login`, then `calibrate ...` against a real match, then
    `watch` — same flow as Linux. Config lands in
-   `%APPDATA%\tcg-watcher\config.toml`.
+   `%APPDATA%\prize-maps\config.toml`.
 
 ### Testing the macOS build
 
@@ -200,20 +200,20 @@ cross-compiled. See `.github/workflows/watcher-macos.yml`.
 1. Trigger it: push to `main` touching `watcher/**`, run the
    **watcher-macos** workflow manually (`gh workflow run watcher-macos.yml`),
    or push a `watcher-v*` tag to also cut a GitHub Release.
-2. Download `tcg-watcher-macos-universal` from the run's artifacts (or the
-   release), then `tar xzf tcg-watcher-macos-universal.tar.gz`. It's a
+2. Download `prize-maps-macos-universal` from the run's artifacts (or the
+   release), then `tar xzf prize-maps-macos-universal.tar.gz`. It's a
    universal binary — runs on both Apple Silicon and Intel.
 3. The binary is unsigned, so clear the download quarantine before running:
-   `xattr -d com.apple.quarantine ./tcg-watcher`.
-4. First `./tcg-watcher watch` run, macOS prompts (via TCC) to grant the
+   `xattr -d com.apple.quarantine ./prize-maps`.
+4. First `./prize-maps watch` run, macOS prompts (via TCC) to grant the
    controlling terminal app **Screen Recording** (for `xcap` window
    capture) and **Accessibility** (for `enigo` synthetic clicks) under
    System Settings → Privacy & Security. Grant both and restart the
    terminal. There is no Linux-style `click_scale` step — `enigo` uses
    native coordinates on macOS.
-5. `./tcg-watcher login`, then `./tcg-watcher calibrate ...` against a real
-   match, then `./tcg-watcher watch` — same flow as Linux. Config lands in
-   `~/Library/Application Support/tcg-watcher/`.
+5. `./prize-maps login`, then `./prize-maps calibrate ...` against a real
+   match, then `./prize-maps watch` — same flow as Linux. Config lands in
+   `~/Library/Application Support/prize-maps/`.
 
 ## Next steps
 

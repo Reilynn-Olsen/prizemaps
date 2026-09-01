@@ -1,6 +1,6 @@
 //! Parses a battle log file and prints a summary plus any top-level lines
 //! that fell through to `EventKind::Other` — run this against a freshly
-//! captured real log (e.g. from `tcg-watcher watch`'s clipboard read) to see
+//! captured real log (e.g. from `prize-maps watch`'s clipboard read) to see
 //! whether `src/battle_log.rs`'s patterns need extending for a sentence
 //! shape the two bundled fixtures didn't cover.
 //!
@@ -9,7 +9,7 @@
 use std::env;
 use std::fs;
 
-use tcg_watcher::battle_log::{self, EventKind};
+use prize_maps::battle_log::{self, EventKind};
 
 fn main() {
     let path = env::args().nth(1).expect("usage: parse_battle_log <path>");

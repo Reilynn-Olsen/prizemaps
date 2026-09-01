@@ -67,10 +67,10 @@ pub fn watch(config: &mut Config, templates_dir: &Path, uploader: &Uploader) -> 
     let templates = TemplateSet::load_with_defaults(templates_dir)?;
     let show_log_button = templates
         .find("show_battle_log_button")
-        .context("no `show_battle_log_button` template (bundled default missing?) — try `tcg-watcher calibrate`")?;
+        .context("no `show_battle_log_button` template (bundled default missing?) — try `prize-maps calibrate`")?;
     let copy_button = templates
         .find("copy_to_clipboard_button")
-        .context("no `copy_to_clipboard_button` template (bundled default missing?) — try `tcg-watcher calibrate`")?;
+        .context("no `copy_to_clipboard_button` template (bundled default missing?) — try `prize-maps calibrate`")?;
 
     let (mut clicker, new_restore_token) =
         platform::default_clicker(config.click_scale, config.portal_restore_token.clone())?;

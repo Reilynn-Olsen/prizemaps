@@ -1,6 +1,6 @@
 name: watcher-windows
 
-# Builds the `tcg-watcher` CLI for Windows. The dev machine is Linux and
+# Builds the `prize-maps` CLI for Windows. The dev machine is Linux and
 # the watcher links Win32 APIs (windows-rs via xcap/enigo, WebView2 via
 # wry), so a real Windows runner is the practical way to produce a binary
 # to test with.
@@ -50,19 +50,19 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Copy-Item target/x86_64-pc-windows-msvc/release/tcg-watcher.exe dist/
-          & dist/tcg-watcher.exe --version
-          Compress-Archive -Path dist/tcg-watcher.exe -DestinationPath tcg-watcher-windows-x64.zip -Force
+          Copy-Item target/x86_64-pc-windows-msvc/release/prize-maps.exe dist/
+          & dist/prize-maps.exe --version
+          Compress-Archive -Path dist/prize-maps.exe -DestinationPath prize-maps-windows-x64.zip -Force
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tcg-watcher-windows-x64
-          path: watcher/tcg-watcher-windows-x64.zip
+          name: prize-maps-windows-x64
+          path: watcher/prize-maps-windows-x64.zip
           if-no-files-found: error
 
       - name: Release (on watcher-v* tag)
         if: startsWith(github.ref, 'refs/tags/watcher-v')
         uses: softprops/action-gh-release@v2
         with:
-          files: watcher/tcg-watcher-windows-x64.zip
+          files: watcher/prize-maps-windows-x64.zip

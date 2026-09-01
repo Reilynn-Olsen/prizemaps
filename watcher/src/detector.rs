@@ -140,7 +140,7 @@ impl TemplateSet {
         let toml_path = dir.join("templates.toml");
         let raw = std::fs::read_to_string(&toml_path).with_context(|| {
             format!(
-                "no calibration data at {} — run `tcg-watcher calibrate` first",
+                "no calibration data at {} — run `prize-maps calibrate` first",
                 toml_path.display()
             )
         })?;
@@ -243,7 +243,7 @@ mod tests {
 
     #[test]
     fn load_with_defaults_falls_back_to_bundled_when_dir_is_empty() {
-        let dir = std::env::temp_dir().join(format!("tcg-watcher-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("prize-maps-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let set = TemplateSet::load_with_defaults(&dir).expect("should fall back to bundled");
         assert!(set.find("show_battle_log_button").is_some());

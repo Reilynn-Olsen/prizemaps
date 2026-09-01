@@ -1,13 +1,13 @@
 use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
 
-use tcg_watcher::config::Config;
-use tcg_watcher::uploader::Uploader;
-use tcg_watcher::{calibrate, login, watcher};
+use prize_maps::config::Config;
+use prize_maps::uploader::Uploader;
+use prize_maps::{calibrate, login, watcher};
 
 #[derive(Parser)]
 #[command(
-    name = "tcg-watcher",
+    name = "prize-maps",
     version,
     about = "Watches for completed Pokemon TCG Live matches and uploads their battle logs for replay"
 )]
@@ -62,7 +62,7 @@ enum Commands {
     /// is a crop of just the game window, so coordinates measured in it are
     /// already window-relative — exactly what `calibrate` wants.
     DumpWindow {
-        /// Where to write the PNG. Defaults to `tcg-watcher-window.png` in
+        /// Where to write the PNG. Defaults to `prize-maps-window.png` in
         /// the current directory.
         #[arg(long)]
         out: Option<std::path::PathBuf>,
@@ -112,7 +112,7 @@ fn main() -> Result<()> {
         }
         Commands::Watch => {
             let Some(token) = config.api_token.clone() else {
-                bail!("not logged in — run `tcg-watcher login <token>` first");
+                bail!("not logged in — run `prize-maps login <token>` first");
             };
             let templates_dir = Config::templates_dir()?;
             let uploader = Uploader::new(config.api_base_url.clone(), token);
@@ -148,7 +148,7 @@ fn main() -> Result<()> {
                 println!();
             }
 
-            let Some(window) = tcg_watcher::capture::GameWindow::find(&config.window_title_hint)?
+            let Some(window) = prize_maps::capture::GameWindow::find(&config.window_title_hint)?
             else {
                 bail!(
                     "no window found with title containing {:?} — is PTCGL running? \
@@ -159,9 +159,9 @@ fn main() -> Result<()> {
 
             let (wx, wy, ww, wh) = window.bounds()?;
             let screenshot = window.screenshot()?;
-            let content = tcg_watcher::letterbox::detect(&screenshot);
+            let content = prize_maps::letterbox::detect(&screenshot);
 
-            let out = out.unwrap_or_else(|| std::path::PathBuf::from("tcg-watcher-window.png"));
+            let out = out.unwrap_or_else(|| std::path::PathBuf::from("prize-maps-window.png"));
             screenshot
                 .save(&out)
                 .map_err(|e| anyhow::anyhow!("failed to save {}: {e}", out.display()))?;
@@ -178,7 +178,7 @@ fn main() -> Result<()> {
                 "Open that PNG in an image editor, read off the button's pixel rectangle\n\
                  (X,Y of its top-left corner, then W,H), and pass it as:\n\
                  \n\
-                   tcg-watcher calibrate show_battle_log_button --region X,Y,W,H\n\
+                   prize-maps calibrate show_battle_log_button --region X,Y,W,H\n\
                  \n\
                  Coordinates are relative to the image's top-left, which is what calibrate wants."
             );

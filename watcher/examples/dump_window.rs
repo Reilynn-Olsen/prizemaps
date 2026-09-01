@@ -1,5 +1,5 @@
 // Debug helper: find the PTCGL window, print its bounds, and save a full
-// screenshot so coordinates for `tcg-watcher calibrate` can be worked out
+// screenshot so coordinates for `prize-maps calibrate` can be worked out
 // precisely instead of eyeballing the real screen.
 //
 // Usage: cargo run --example dump_window -- [title_hint] [out_path.png]

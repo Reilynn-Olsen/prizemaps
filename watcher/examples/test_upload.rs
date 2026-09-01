@@ -1,10 +1,10 @@
 // Debug helper: take whatever's currently in the clipboard and upload it as
 // a battle log submission, using the real config/uploader code paths.
 use chrono::Utc;
-use tcg_watcher::battle_log;
-use tcg_watcher::config::Config;
-use tcg_watcher::events::BattleLogSubmission;
-use tcg_watcher::uploader::Uploader;
+use prize_maps::battle_log;
+use prize_maps::config::Config;
+use prize_maps::events::BattleLogSubmission;
+use prize_maps::uploader::Uploader;
 use uuid::Uuid;
 
 fn main() -> anyhow::Result<()> {

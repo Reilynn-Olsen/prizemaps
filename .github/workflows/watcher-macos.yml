@@ -1,6 +1,6 @@
 name: watcher-macos
 
-# Builds the `tcg-watcher` CLI for macOS. The dev machine is Linux and the
+# Builds the `prize-maps` CLI for macOS. The dev machine is Linux and the
 # watcher pulls in Apple frameworks (WebKit via wry, CoreGraphics via xcap/
 # enigo, AppKit pasteboard via arboard), so a real macOS runner is the only
 # practical way to produce a binary to test with.
@@ -51,28 +51,28 @@ jobs:
       - name: Make universal binary
         run: |
           mkdir -p dist
-          lipo -create -output dist/tcg-watcher \
-            target/aarch64-apple-darwin/release/tcg-watcher \
-            target/x86_64-apple-darwin/release/tcg-watcher
-          strip dist/tcg-watcher
-          chmod +x dist/tcg-watcher
-          lipo -info dist/tcg-watcher
-          ./dist/tcg-watcher --version
+          lipo -create -output dist/prize-maps \
+            target/aarch64-apple-darwin/release/prize-maps \
+            target/x86_64-apple-darwin/release/prize-maps
+          strip dist/prize-maps
+          chmod +x dist/prize-maps
+          lipo -info dist/prize-maps
+          ./dist/prize-maps --version
 
       - name: Package
         run: |
           cp README.md dist/ 2>/dev/null || true
-          tar -C dist -czf tcg-watcher-macos-universal.tar.gz tcg-watcher
+          tar -C dist -czf prize-maps-macos-universal.tar.gz prize-maps
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tcg-watcher-macos-universal
-          path: watcher/tcg-watcher-macos-universal.tar.gz
+          name: prize-maps-macos-universal
+          path: watcher/prize-maps-macos-universal.tar.gz
           if-no-files-found: error
 
       - name: Release (on watcher-v* tag)
         if: startsWith(github.ref, 'refs/tags/watcher-v')
         uses: softprops/action-gh-release@v2
         with:
-          files: watcher/tcg-watcher-macos-universal.tar.gz
+          files: watcher/prize-maps-macos-universal.tar.gz

@@ -12,7 +12,7 @@ use std::env;
 use std::fs;
 
 use serde::Serialize;
-use tcg_watcher::battle_log::{self, FlatEvent, MatchResult};
+use prize_maps::battle_log::{self, FlatEvent, MatchResult};
 
 #[derive(Serialize)]
 struct Submission {

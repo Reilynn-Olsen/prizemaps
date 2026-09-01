@@ -1,9 +1,9 @@
 // Debug helper: perform exactly one click_at_fraction call using the real
 // production Clicker path, for isolating click-precision issues from the
 // watch loop's retry behavior.
-use tcg_watcher::capture::GameWindow;
-use tcg_watcher::config::Config;
-use tcg_watcher::platform;
+use prize_maps::capture::GameWindow;
+use prize_maps::config::Config;
+use prize_maps::platform;
 
 fn main() -> anyhow::Result<()> {
     let mut config = Config::load()?;

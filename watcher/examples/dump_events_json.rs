@@ -5,7 +5,7 @@
 use std::env;
 use std::fs;
 
-use tcg_watcher::battle_log;
+use prize_maps::battle_log;
 
 fn main() {
     let path = env::args().nth(1).expect("usage: dump_events_json <path>");

@@ -3,8 +3,8 @@
 //
 // Usage: cargo run --example test_detector -- <image.png>
 
-use tcg_watcher::detector::TemplateSet;
-use tcg_watcher::letterbox;
+use prize_maps::detector::TemplateSet;
+use prize_maps::letterbox;
 
 fn main() -> anyhow::Result<()> {
     let path = std::env::args().nth(1).expect("usage: test_detector <image.png>");
@@ -21,7 +21,7 @@ fn main() -> anyhow::Result<()> {
         screenshot.height()
     );
 
-    let templates_dir = dirs::config_dir().unwrap().join("tcg-watcher").join("templates");
+    let templates_dir = dirs::config_dir().unwrap().join("prize-maps").join("templates");
     let templates = TemplateSet::load(&templates_dir)?;
 
     for name in ["show_battle_log_button", "copy_to_clipboard_button"] {

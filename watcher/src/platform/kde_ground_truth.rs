@@ -19,7 +19,7 @@ use std::process::Command;
 use std::time::Duration;
 
 fn run_script(body: &str) -> Option<String> {
-    let path = std::env::temp_dir().join(format!("tcg_watcher_kwin_{}.js", std::process::id()));
+    let path = std::env::temp_dir().join(format!("prize_maps_kwin_{}.js", std::process::id()));
     std::fs::write(&path, body).ok()?;
     let id_out = Command::new("qdbus6")
         .args(["org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting.loadScript", path.to_str()?])

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
-    /// Base URL of the web app's ingestion API, e.g. https://your-app.vercel.app/api
+    /// Base URL of the web app's ingestion API, e.g. https://www.prizemaps.app/api
     pub api_base_url: String,
     /// Personal API token generated on the web app's dashboard.
     pub api_token: Option<String>,
@@ -49,7 +49,7 @@ fn default_click_scale() -> f32 {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            api_base_url: "http://localhost:3000/api".to_string(),
+            api_base_url: "https://www.prizemaps.app/api".to_string(),
             api_token: None,
             window_title_hint: default_window_title_hint(),
             click_scale: default_click_scale(),
@@ -63,7 +63,7 @@ impl Config {
     fn path() -> Result<PathBuf> {
         let dir = dirs::config_dir()
             .context("could not determine OS config directory")?
-            .join("tcg-watcher");
+            .join("prize-maps");
         Ok(dir.join("config.toml"))
     }
 
@@ -96,11 +96,11 @@ impl Config {
     }
 
     /// Directory holding calibrated template images + `templates.toml`,
-    /// produced by `tcg-watcher calibrate`.
+    /// produced by `prize-maps calibrate`.
     pub fn templates_dir() -> Result<PathBuf> {
         let dir = dirs::config_dir()
             .context("could not determine OS config directory")?
-            .join("tcg-watcher")
+            .join("prize-maps")
             .join("templates");
         Ok(dir)
     }

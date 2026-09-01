@@ -3,7 +3,7 @@
 # PTCGL match (Linux/Wayland, KDE/CachyOS, 2880x1620 content rect). Regions
 # and clicks are fractions of the content rect, which is what makes one
 # capture reusable across displays. To regenerate: run `calibrate` against a
-# clean match, then copy ~/.config/tcg-watcher/templates/* over these.
+# clean match, then copy ~/.config/prize-maps/templates/* over these.
 
 [[template]]
 name = "show_battle_log_button"
