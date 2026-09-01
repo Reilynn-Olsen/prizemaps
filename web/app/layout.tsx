@@ -9,12 +9,22 @@ import "./globals.css";
 // Tailwind theme tokens (globals.css) they feed, mirroring the previous
 // `--font-geist-sans` -> `--font-sans` indirection — required so Tailwind's
 // `@theme` value isn't self-referential.
+// Display face — only used for headings (globals.css `h1, h2` + a few inline
+// `var(--font-display)` spots), so it's absent from pages like /login and
+// /cli-auth. next/font preloads every declared weight by default, and Firefox
+// warns about a preloaded font file that goes unused on the current page
+// ("preloaded with link preload was not used within a few seconds"). Dropping
+// the preload silences that; with `display: "swap"` (the default) headings
+// just render in the fallback for a beat before swapping in.
 const fraunces = Fraunces({
   variable: "--font-fraunces",
   subsets: ["latin"],
   weight: ["400", "500", "600"],
+  preload: false,
 });
 
+// Body font (globals.css sets it on `body`), so it's used on every route —
+// keep it preloaded.
 const plexMono = IBM_Plex_Mono({
   variable: "--font-plex-mono",
   subsets: ["latin"],

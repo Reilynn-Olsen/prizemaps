@@ -39,9 +39,16 @@ function truncate(name: string, max = 14): string {
   return name.length > max ? `${name.slice(0, max - 1)}…` : name;
 }
 
+// Deterministic on purpose: this is a "use client" component, so the label
+// is rendered once on the server and again during hydration. `toLocaleDateString`
+// resolves against whoever is formatting (the server's locale vs. the
+// visitor's browser), so "Sep 1" server-side and "1 Sep" client-side would
+// trip a hydration text mismatch (React #418). Fixed month names sidestep it.
+const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
 function formatWeek(iso: string): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const [, m, d] = iso.split("-").map(Number);
+  return `${MONTH_ABBR[m - 1]} ${d}`;
 }
 
 function trendBadge(direction: "up" | "down" | "flat" | null, percentChange: number | null): string | null {

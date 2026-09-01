@@ -161,12 +161,15 @@ const TREND_SELECT = "opponent_deck_archetype, created_at";
 
 export async function computeGlobalDeckTrends(): Promise<DeckTrendData> {
   const supabase = createAdminClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("matches")
     .select(TREND_SELECT)
     .not("opponent_deck_archetype", "is", null)
     .order("created_at", { ascending: true })
     .limit(5000);
+  // See computeGlobalMatchups: an errored query looks identical to "no
+  // data yet" on the landing page, so surface it in the server logs.
+  if (error) console.error("computeGlobalDeckTrends query failed:", error);
   return aggregateDeckTrends((data ?? []) as TrendRow[]);
 }
 

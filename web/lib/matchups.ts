@@ -166,13 +166,20 @@ const MATCHUP_SELECT = "player_deck_archetype, opponent_deck_archetype, result, 
 
 export async function computeGlobalMatchups(): Promise<MatchupData> {
   const supabase = createAdminClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("matches")
     .select(MATCHUP_SELECT)
     .not("player_deck_archetype", "is", null)
     .not("opponent_deck_archetype", "is", null)
     .order("created_at", { ascending: true })
     .limit(5000);
+  // The landing page renders an empty "fills in as matches get uploaded"
+  // state when this returns nothing — which also happens if the query
+  // itself failed (most commonly a missing/wrong SUPABASE_SERVICE_ROLE_KEY
+  // in the deployment, so RLS hides every other account's matches). Log it
+  // so that case is visible in the server logs instead of looking like
+  // "no data yet".
+  if (error) console.error("computeGlobalMatchups query failed:", error);
   return aggregateMatchups((data ?? []) as MatchRow[]);
 }
 
