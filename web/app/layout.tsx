@@ -9,13 +9,16 @@ import "./globals.css";
 // Tailwind theme tokens (globals.css) they feed, mirroring the previous
 // `--font-geist-sans` -> `--font-sans` indirection — required so Tailwind's
 // `@theme` value isn't self-referential.
-// Display face — only used for headings (globals.css `h1, h2` + a few inline
-// `var(--font-display)` spots), so it's absent from pages like /login and
-// /cli-auth. next/font preloads every declared weight by default, and Firefox
-// warns about a preloaded font file that goes unused on the current page
-// ("preloaded with link preload was not used within a few seconds"). Dropping
-// the preload silences that; with `display: "swap"` (the default) headings
-// just render in the fallback for a beat before swapping in.
+//
+// `preload: false` on both faces. next/font's injected <link rel="preload">
+// for a font consistently trips Firefox's "preloaded with link preload was
+// not used within a few seconds" warning here: with `display: "swap"` and
+// the auto-generated size-adjusted Arial fallback, the real face swaps in
+// after Firefox's ~3s check, so it flags the preload as unused even though
+// the font does render. Dropping the preemptive preload silences it; the
+// faces still load via their @font-face rules, just discovered from the CSS
+// instead of hinted up front — a brief fallback flash that `swap` already
+// implies.
 const fraunces = Fraunces({
   variable: "--font-fraunces",
   subsets: ["latin"],
@@ -23,12 +26,11 @@ const fraunces = Fraunces({
   preload: false,
 });
 
-// Body font (globals.css sets it on `body`), so it's used on every route —
-// keep it preloaded.
 const plexMono = IBM_Plex_Mono({
   variable: "--font-plex-mono",
   subsets: ["latin"],
   weight: ["400", "500"],
+  preload: false,
 });
 
 export const metadata: Metadata = {
