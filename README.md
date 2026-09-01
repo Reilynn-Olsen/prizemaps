@@ -151,6 +151,29 @@ of the current backend.
    RemoteDesktop permission — see above); approve it once and it's
    remembered for future runs.
 
+### Testing the Windows build
+
+The dev machine is Linux and the watcher links Win32 APIs (`windows-rs` via
+`xcap`/`enigo`, WebView2 via `wry`), so Windows binaries are built on a
+`windows-latest` runner in CI, not cross-compiled. See
+`.github/workflows/watcher-windows.yml`.
+
+1. Trigger it: push to `main` touching `watcher/**`, run the
+   **watcher-windows** workflow manually (`gh workflow run
+   watcher-windows.yml`), or push a `watcher-v*` tag to also cut a GitHub
+   Release.
+2. Download `tcg-watcher-windows-x64` from the run's artifacts (or the
+   release) and unzip `tcg-watcher.exe`. It targets `x86_64-pc-windows-msvc`.
+3. The `.exe` is unsigned, so SmartScreen shows "Windows protected your PC"
+   on first run — click **More info -> Run anyway**.
+4. Unlike Linux/macOS there's no permission prompt: `enigo` synthetic
+   clicks and `xcap` window capture work without a TCC/portal grant, and
+   there's no `click_scale` step. The `login` window needs the WebView2
+   runtime, which ships with Windows 11 and current Windows 10.
+5. `tcg-watcher.exe login`, then `calibrate ...` against a real match, then
+   `watch` — same flow as Linux. Config lands in
+   `%APPDATA%\tcg-watcher\config.toml`.
+
 ## Next steps
 
 - Build the replay viewer and matchup/win-rate charts on top of
