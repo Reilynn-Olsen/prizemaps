@@ -4,6 +4,7 @@ import { computeGlobalDeckTrends } from "@/lib/deck-trends";
 import { MatchupExplorer } from "@/components/matchup-explorer";
 import { DeckTrendChart } from "@/components/deck-trend-chart";
 import { TopoBackground } from "@/components/topo-background";
+import { ContactButton } from "@/components/contact-button";
 
 // Without this, Next prerenders the matchup data once at build time and
 // serves that frozen snapshot to every visitor — the whole point is that it
@@ -89,8 +90,12 @@ export default async function Home() {
 
       <MatchupExplorer {...matchups} scopeLabel="across all Prize Map matches" />
 
-      <div className="px-8 py-10 text-xs" style={{ color: FAINT }}>
-        Watcher CLI + parser source — coming soon.
+      <div
+        className="flex flex-wrap items-center justify-between gap-4 px-8 py-10 text-xs"
+        style={{ color: FAINT, borderTop: `1px solid ${LINE}` }}
+      >
+        <span>Watcher CLI + parser source — coming soon.</span>
+        <ContactButton />
       </div>
     </main>
   );
