@@ -1,0 +1,36 @@
+# Default button templates shipped in the binary — see the doc comment on
+# `BUNDLED_TEMPLATES_TOML` in src/detector.rs. Captured once against a real
+# PTCGL match (Linux/Wayland, KDE/CachyOS, 2880x1620 content rect). Regions
+# and clicks are fractions of the content rect, which is what makes one
+# capture reusable across displays. To regenerate: run `calibrate` against a
+# clean match, then copy ~/.config/tcg-watcher/templates/* over these.
+
+[[template]]
+name = "show_battle_log_button"
+image = "show_battle_log_button.png"
+region = [
+    0.44305555555555554,
+    0.7913580246913581,
+    0.11215277777777778,
+    0.03580246913580247,
+]
+click = [
+    0.5302083333333333,
+    0.8092592592592592,
+]
+threshold = 0.8999999761581421
+
+[[template]]
+name = "copy_to_clipboard_button"
+image = "copy_to_clipboard_button.png"
+region = [
+    0.9513888888888888,
+    0.0049382716049382715,
+    0.025694444444444443,
+    0.047530864197530866,
+]
+click = [
+    0.9642361111111111,
+    0.029012345679012345,
+]
+threshold = 0.8999999761581421

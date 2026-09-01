@@ -76,7 +76,66 @@ pub struct TemplateSet {
     templates: Vec<Template>,
 }
 
+/// Reference crops + regions captured once against a real match and shipped
+/// inside the binary, so a fresh install detects the post-match buttons
+/// with no `calibrate` step. Regions are stored as fractions of the content
+/// rect (see `TemplateDef` / `letterbox`), which the README's live
+/// measurements show are stable across resolution and window aspect ratio —
+/// so one capture is a usable default everywhere. `calibrate` still exists
+/// as an override for the cases these don't cover (a new game version moves
+/// a button, a different UI language/theme changes its art, an ultrawide
+/// layout, ...); user calibration always wins over these.
+const BUNDLED_TEMPLATES_TOML: &str =
+    include_str!("../assets/default_templates/templates.toml");
+const BUNDLED_SHOW_LOG_PNG: &[u8] =
+    include_bytes!("../assets/default_templates/show_battle_log_button.png");
+const BUNDLED_COPY_PNG: &[u8] =
+    include_bytes!("../assets/default_templates/copy_to_clipboard_button.png");
+
+fn bundled_image_bytes(filename: &str) -> Option<&'static [u8]> {
+    match filename {
+        "show_battle_log_button.png" => Some(BUNDLED_SHOW_LOG_PNG),
+        "copy_to_clipboard_button.png" => Some(BUNDLED_COPY_PNG),
+        _ => None,
+    }
+}
+
 impl TemplateSet {
+    /// The bundled defaults alone — used as the base that user calibration
+    /// (if any) is layered on top of. See `load_with_defaults`.
+    pub fn bundled() -> Result<Self> {
+        let file: TemplateFile = toml::from_str(BUNDLED_TEMPLATES_TOML)
+            .context("failed to parse bundled templates.toml")?;
+        let templates = file
+            .template
+            .into_iter()
+            .map(|def| {
+                let bytes = bundled_image_bytes(&def.image)
+                    .with_context(|| format!("no bundled image for {}", def.image))?;
+                let reference = image::load_from_memory(bytes)
+                    .with_context(|| format!("failed to decode bundled image {}", def.image))?
+                    .to_rgba8();
+                Ok(Template { def, reference })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok(Self { templates })
+    }
+
+    /// Load the templates `watch` should use: the bundled defaults, with any
+    /// templates the user has calibrated in `dir` replacing the default of
+    /// the same name. A missing/empty `dir` is fine — you just get the
+    /// defaults, which is the intended first-run path.
+    pub fn load_with_defaults(dir: &Path) -> Result<Self> {
+        let mut set = Self::bundled()?;
+        if dir.join("templates.toml").exists() {
+            for user in Self::load(dir)?.templates {
+                set.templates.retain(|t| t.def.name != user.def.name);
+                set.templates.push(user);
+            }
+        }
+        Ok(set)
+    }
+
     pub fn load(dir: &Path) -> Result<Self> {
         let toml_path = dir.join("templates.toml");
         let raw = std::fs::read_to_string(&toml_path).with_context(|| {
@@ -165,4 +224,29 @@ fn mean_pixel_similarity(a: &RgbaImage, b: &RgbaImage) -> f32 {
         return 0.0;
     }
     1.0 - (total_diff as f32 / count as f32) / 255.0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bundled_templates_load_and_have_both_buttons() {
+        let set = TemplateSet::bundled().expect("bundled templates must load");
+        assert!(set.find("show_battle_log_button").is_some());
+        assert!(set.find("copy_to_clipboard_button").is_some());
+        for t in &set.templates {
+            assert!(t.reference.width() > 0 && t.reference.height() > 0);
+            assert!(t.def.threshold > 0.0 && t.def.threshold <= 1.0);
+        }
+    }
+
+    #[test]
+    fn load_with_defaults_falls_back_to_bundled_when_dir_is_empty() {
+        let dir = std::env::temp_dir().join(format!("tcg-watcher-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let set = TemplateSet::load_with_defaults(&dir).expect("should fall back to bundled");
+        assert!(set.find("show_battle_log_button").is_some());
+        assert!(set.find("copy_to_clipboard_button").is_some());
+    }
 }
