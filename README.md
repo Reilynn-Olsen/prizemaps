@@ -40,11 +40,12 @@ shows. The session is remembered afterward (`portal_restore_token` in
 Calibration (capturing the two button templates) has to be done against a
 real, running PTCGL match — `tcg-watcher calibrate <name> --region X,Y,W,H
 [--click X,Y] [--threshold 0.9]`, once for `show_battle_log_button` and once
-for `copy_to_clipboard_button`. Find the pixel coordinates with any
-screenshot tool while looking at the real screen (`cargo run --example
-dump_window` in `watcher/` saves a screenshot of the game window and prints
-its bounds/focus state — useful for finding those coordinates without a
-separate tool).
+for `copy_to_clipboard_button`. To get the pixel coordinates, run
+`tcg-watcher dump-window` (add `--list` if the window isn't found) — it
+saves a PNG crop of just the game window and prints its bounds and detected
+content rect. Open that PNG in any image editor and read off the button's
+rectangle: X,Y of its top-left corner, then W,H. Coordinates measured in
+that crop are already window-relative, which is what `--region` expects.
 
 PTCGL renders its own UI at a fixed 16:9 aspect ratio and pads the rest of
 an odd-shaped window with black bars rather than stretching to fill it —
