@@ -62,13 +62,15 @@ const COPY_CLICK_JITTER_RADIUS: f32 = 0.12;
 /// whatever landed in the clipboard. There's no game-state log to read (see
 /// the watcher README) — the button appearing *is* the match-over signal.
 pub fn watch(config: &mut Config, templates_dir: &Path, uploader: &Uploader) -> Result<()> {
-    let templates = TemplateSet::load(templates_dir)?;
+    // Bundled defaults out of the box; anything the user has calibrated in
+    // `templates_dir` overrides the default of the same name.
+    let templates = TemplateSet::load_with_defaults(templates_dir)?;
     let show_log_button = templates
         .find("show_battle_log_button")
-        .context("templates.toml is missing a `show_battle_log_button` template — run `tcg-watcher calibrate` first")?;
+        .context("no `show_battle_log_button` template (bundled default missing?) — try `tcg-watcher calibrate`")?;
     let copy_button = templates
         .find("copy_to_clipboard_button")
-        .context("templates.toml is missing a `copy_to_clipboard_button` template — run `tcg-watcher calibrate` first")?;
+        .context("no `copy_to_clipboard_button` template (bundled default missing?) — try `tcg-watcher calibrate`")?;
 
     let (mut clicker, new_restore_token) =
         platform::default_clicker(config.click_scale, config.portal_restore_token.clone())?;

@@ -139,10 +139,10 @@ fn main() -> Result<()> {
             if list {
                 println!("visible windows:");
                 for w in xcap::Window::all()? {
-                    if let Ok(title) = w.title() {
-                        if !title.trim().is_empty() {
-                            println!("  {title:?}");
-                        }
+                    if let Ok(title) = w.title()
+                        && !title.trim().is_empty()
+                    {
+                        println!("  {title:?}");
                     }
                 }
                 println!();
@@ -184,10 +184,20 @@ fn main() -> Result<()> {
             );
         }
         Commands::Status => {
+            let templates_dir = Config::templates_dir()?;
+            let has_custom = templates_dir.join("templates.toml").exists();
             println!("api_base_url: {}", config.api_base_url);
             println!("logged in: {}", config.is_logged_in());
             println!("window_title_hint: {}", config.window_title_hint);
-            println!("templates_dir: {}", Config::templates_dir()?.display());
+            println!("templates_dir: {}", templates_dir.display());
+            println!(
+                "calibration: {}",
+                if has_custom {
+                    "custom (your calibrate data, overriding bundled defaults)"
+                } else {
+                    "bundled defaults (run `calibrate` only if detection misses)"
+                }
+            );
         }
     }
 

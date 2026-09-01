@@ -37,15 +37,29 @@ dialog the first time `tcg-watcher watch` runs, which the portal itself
 shows. The session is remembered afterward (`portal_restore_token` in
 `config.toml`) so it doesn't ask again.
 
-Calibration (capturing the two button templates) has to be done against a
-real, running PTCGL match — `tcg-watcher calibrate <name> --region X,Y,W,H
-[--click X,Y] [--threshold 0.9]`, once for `show_battle_log_button` and once
-for `copy_to_clipboard_button`. To get the pixel coordinates, run
-`tcg-watcher dump-window` (add `--list` if the window isn't found) — it
-saves a PNG crop of just the game window and prints its bounds and detected
-content rect. Open that PNG in any image editor and read off the button's
-rectangle: X,Y of its top-left corner, then W,H. Coordinates measured in
-that crop are already window-relative, which is what `--region` expects.
+Calibration is **not a required step**. The binary ships with reference
+crops and regions for both post-match buttons
+(`watcher/assets/default_templates/`, embedded via `include_bytes!` — see
+`detector::TemplateSet::bundled`), captured once against a real match.
+Because regions are stored as fractions of the detected *content rect*
+(next paragraph), which live measurements show is stable across resolution
+and window aspect ratio, that one capture is a usable default on any
+display. `tcg-watcher watch` uses it out of the box.
+
+`tcg-watcher calibrate` is the **override** for cases the defaults don't
+cover — a new game version moving a button, a different UI language/theme
+changing its art, an unusual layout. Run against a real, running PTCGL
+match: `tcg-watcher calibrate <name> --region X,Y,W,H [--click X,Y]
+[--threshold 0.9]`, for `show_battle_log_button` and/or
+`copy_to_clipboard_button`. To get the pixel coordinates, run `tcg-watcher
+dump-window` (add `--list` if the window isn't found) — it saves a PNG crop
+of just the game window and prints its bounds and detected content rect.
+Open that PNG in any image editor and read off the button's rectangle: X,Y
+of its top-left corner, then W,H. Coordinates measured in that crop are
+already window-relative, which is what `--region` expects. Calibrated
+templates land in `<config>/tcg-watcher/templates/` and override the
+bundled default of the same name; `tcg-watcher status` shows which is in
+use.
 
 PTCGL renders its own UI at a fixed 16:9 aspect ratio and pads the rest of
 an odd-shaped window with black bars rather than stretching to fill it —
@@ -144,13 +158,14 @@ of the current backend.
    pages; approve there and the watcher stores the resulting token itself.
    (Linux needs `webkit2gtk` + `gtk3` dev packages installed for this
    window; pass a token directly with `login <token>` to skip it.)
-3. `cargo run -- calibrate show_battle_log_button --region X,Y,W,H` and
-   again for `copy_to_clipboard_button`, against a real match (see
-   "Calibration" above).
-4. `cargo run -- watch` — on Linux/Wayland, the first run shows a native
+3. `cargo run -- watch` — on Linux/Wayland, the first run shows a native
    system dialog asking to allow input control (the `xdg-desktop-portal`
    RemoteDesktop permission — see above); approve it once and it's
-   remembered for future runs.
+   remembered for future runs. No calibration step: the binary ships with
+   default button templates (see "Calibration" above).
+4. Only if detection misses: `cargo run -- calibrate show_battle_log_button
+   --region X,Y,W,H` (and/or `copy_to_clipboard_button`) against a real
+   match — see "Calibration" above.
 
 ### Testing the Windows build
 
