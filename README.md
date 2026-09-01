@@ -190,6 +190,31 @@ The dev machine is Linux and the watcher links Win32 APIs (`windows-rs` via
    `watch` — same flow as Linux. Config lands in
    `%APPDATA%\tcg-watcher\config.toml`.
 
+### Testing the macOS build
+
+The dev machine is Linux, and the watcher links Apple frameworks (WebKit
+via `wry`, CoreGraphics via `xcap`/`enigo`, the AppKit pasteboard via
+`arboard`), so macOS binaries are built on a real macOS runner in CI, not
+cross-compiled. See `.github/workflows/watcher-macos.yml`.
+
+1. Trigger it: push to `main` touching `watcher/**`, run the
+   **watcher-macos** workflow manually (`gh workflow run watcher-macos.yml`),
+   or push a `watcher-v*` tag to also cut a GitHub Release.
+2. Download `tcg-watcher-macos-universal` from the run's artifacts (or the
+   release), then `tar xzf tcg-watcher-macos-universal.tar.gz`. It's a
+   universal binary — runs on both Apple Silicon and Intel.
+3. The binary is unsigned, so clear the download quarantine before running:
+   `xattr -d com.apple.quarantine ./tcg-watcher`.
+4. First `./tcg-watcher watch` run, macOS prompts (via TCC) to grant the
+   controlling terminal app **Screen Recording** (for `xcap` window
+   capture) and **Accessibility** (for `enigo` synthetic clicks) under
+   System Settings → Privacy & Security. Grant both and restart the
+   terminal. There is no Linux-style `click_scale` step — `enigo` uses
+   native coordinates on macOS.
+5. `./tcg-watcher login`, then `./tcg-watcher calibrate ...` against a real
+   match, then `./tcg-watcher watch` — same flow as Linux. Config lands in
+   `~/Library/Application Support/tcg-watcher/`.
+
 ## Next steps
 
 - Build the replay viewer and matchup/win-rate charts on top of
