@@ -4,7 +4,6 @@ import { computeGlobalDeckTrends } from "@/lib/deck-trends";
 import { MatchupExplorer } from "@/components/matchup-explorer";
 import { DeckTrendChart } from "@/components/deck-trend-chart";
 import { TopoBackground } from "@/components/topo-background";
-import { GITHUB_REPO_URL } from "@/lib/links";
 
 // Without this, Next prerenders the matchup data once at build time and
 // serves that frozen snapshot to every visitor — the whole point is that it
@@ -22,12 +21,6 @@ const BRASS = "#C99A3A";
 const LINE = "#3A4238";
 const MUTED = "#9C9484";
 const FAINT = "#786F5D";
-
-const STEPS = [
-  { n: "1", t: "Install the launcher", d: "Grab it from GitHub and run tcg-watcher login — it opens a window to sign in." },
-  { n: "2", t: "Run the watcher", d: "tcg-watcher watch while you play. Calibrate the two buttons once per screen setup." },
-  { n: "3", t: "Matches show up here", d: "Each finished game uploads automatically, parsed turn-by-turn." },
-];
 
 export default async function Home() {
   const matchups = await computeGlobalMatchups();
@@ -77,20 +70,18 @@ export default async function Home() {
           </div>
         </div>
 
-        <div className="relative mt-14 grid max-w-2xl grid-cols-1 gap-6 sm:grid-cols-3">
-          {STEPS.map((step) => (
-            <div key={step.n} className="p-4" style={{ background: "rgba(15, 12, 9, 0.72)" }}>
-              <div className="mb-2 text-xs" style={{ color: BRASS }}>
-                {step.n}
-              </div>
-              <div className="mb-1 text-sm" style={{ color: PARCHMENT }}>
-                {step.t}
-              </div>
-              <div className="text-xs leading-relaxed" style={{ color: MUTED }}>
-                {step.d}
-              </div>
-            </div>
-          ))}
+        <div className="relative mt-14 max-w-2xl p-5" style={{ background: "rgba(15, 12, 9, 0.72)" }}>
+          <div className="mb-2 text-xs" style={{ color: BRASS }}>
+            Coming soon
+          </div>
+          <div className="mb-1 text-sm" style={{ color: PARCHMENT }}>
+            The match watcher isn&rsquo;t ready to download yet
+          </div>
+          <div className="text-xs leading-relaxed" style={{ color: MUTED }}>
+            It reads your PTCGL match history and uploads each finished game here,
+            parsed turn-by-turn. Install and setup instructions will land on this
+            page once it&rsquo;s available.
+          </div>
         </div>
       </div>
 
@@ -99,11 +90,7 @@ export default async function Home() {
       <MatchupExplorer {...matchups} scopeLabel="across all Prize Map matches" />
 
       <div className="px-8 py-10 text-xs" style={{ color: FAINT }}>
-        Watcher CLI + parser source at{" "}
-        <a href={GITHUB_REPO_URL} className="underline" target="_blank" rel="noreferrer">
-          github.com/Reilynn-Olsen/ptcgl-tracker
-        </a>
-        .
+        Watcher CLI + parser source — coming soon.
       </div>
     </main>
   );

@@ -13,7 +13,6 @@ import { DeckTrendChart } from "@/components/deck-trend-chart";
 import { PlayDrawSplits } from "@/components/play-draw-splits";
 import { Wordmark } from "@/components/wordmark";
 import { TopoBackground } from "@/components/topo-background";
-import { LAUNCHER_URL } from "@/lib/links";
 
 export const metadata: Metadata = {
   title: "Dashboard — Prize Map",
@@ -25,7 +24,7 @@ const RESULT_LABEL_STYLES: Record<string, string> = {
   loss: "text-status-critical",
 };
 
-const NO_MATCHES_COPY = "No matches uploaded yet — they'll appear here once the watcher sends data.";
+const NO_MATCHES_COPY = "No matches uploaded yet — they'll appear here once the watcher is available and running.";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -63,20 +62,12 @@ export default async function DashboardPage() {
 
       {!hasMatches && (
         <section className="mt-8 rounded-xl border border-border-hairline bg-surface-card p-4">
-          <h2 className="text-sm font-medium text-text-primary">Connect the launcher</h2>
+          <h2 className="text-sm font-medium text-text-primary">Match watcher — coming soon</h2>
           <p className="mt-1 text-sm text-text-muted">
-            Matches show up here automatically once the launcher is running. Install it, then{" "}
-            <code className="rounded bg-surface-card-hover px-1 py-0.5 text-xs">tcg-watcher login</code> and{" "}
-            <code className="rounded bg-surface-card-hover px-1 py-0.5 text-xs">tcg-watcher watch</code> while you play.
+            The watcher reads your PTCGL match history and uploads each finished game
+            here automatically. It isn&apos;t ready to download yet — install and setup
+            instructions will show up here once it&apos;s available.
           </p>
-          <a
-            href={LAUNCHER_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-3 inline-block rounded-lg bg-accent-strong px-4 py-2 text-sm font-medium text-accent-ink transition hover:opacity-90"
-          >
-            Install the launcher →
-          </a>
         </section>
       )}
 
@@ -174,16 +165,6 @@ export default async function DashboardPage() {
           </ul>
         )}
       </section>
-
-      {hasMatches && (
-        <p className="pb-10 text-xs text-text-muted">
-          Playing on another machine?{" "}
-          <a href={LAUNCHER_URL} target="_blank" rel="noreferrer" className="underline hover:text-text-secondary">
-            Install the launcher
-          </a>{" "}
-          there too.
-        </p>
-      )}
     </main>
   );
 }
