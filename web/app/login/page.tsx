@@ -24,10 +24,10 @@ function LoginForm() {
     setStatus("sending");
 
     const supabase = createClient();
+    // Always carry a `next`, so the emailed link's query string is
+    // well-formed no matter how the Supabase template appends to it.
     const redirectTo = new URL("/auth/callback", window.location.origin);
-    if (next) {
-      redirectTo.searchParams.set("next", next);
-    }
+    redirectTo.searchParams.set("next", next ?? "/dashboard");
 
     const { error } = await supabase.auth.signInWithOtp({
       email,
