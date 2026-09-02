@@ -13,7 +13,7 @@ use prize_maps::{calibrate, login, watcher};
 )]
 struct Cli {
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
 }
 
 #[derive(Subcommand)]
@@ -93,30 +93,57 @@ fn parse_point(s: &str) -> Result<(u32, u32), String> {
     Ok((parse(x)?, parse(y)?))
 }
 
+/// Prompts for login (opening the sign-in window unless a token is passed)
+/// and persists the resulting token.
+fn run_login(
+    config: &mut Config,
+    token: Option<String>,
+    api_base_url: Option<String>,
+) -> Result<()> {
+    if let Some(url) = api_base_url {
+        config.api_base_url = url;
+    }
+    let token = match token {
+        Some(token) => token,
+        None => login::interactive_login(&config.api_base_url)?,
+    };
+    config.api_token = Some(token);
+    config.save()?;
+    println!("Logged in. Config saved to your OS config directory.");
+    Ok(())
+}
+
+/// Runs the match watcher, erroring if we're not logged in yet.
+fn run_watch(config: &mut Config) -> Result<()> {
+    let Some(token) = config.api_token.clone() else {
+        bail!("not logged in — run `prize-maps login` first");
+    };
+    let templates_dir = Config::templates_dir()?;
+    let uploader = Uploader::new(config.api_base_url.clone(), token);
+    watcher::watch(config, &templates_dir, &uploader)
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
     let mut config = Config::load()?;
 
-    match cli.command {
+    let Some(command) = cli.command else {
+        // No subcommand — the usual case when the app is launched by
+        // double-clicking rather than from a terminal. Do the obvious
+        // thing: open the login window if we're not signed in, then start
+        // watching for matches.
+        if !config.is_logged_in() {
+            run_login(&mut config, None, None)?;
+        }
+        return run_watch(&mut config);
+    };
+
+    match command {
         Commands::Login { token, api_base_url } => {
-            if let Some(url) = api_base_url {
-                config.api_base_url = url;
-            }
-            let token = match token {
-                Some(token) => token,
-                None => login::interactive_login(&config.api_base_url)?,
-            };
-            config.api_token = Some(token);
-            config.save()?;
-            println!("Logged in. Config saved to your OS config directory.");
+            run_login(&mut config, token, api_base_url)?;
         }
         Commands::Watch => {
-            let Some(token) = config.api_token.clone() else {
-                bail!("not logged in — run `prize-maps login <token>` first");
-            };
-            let templates_dir = Config::templates_dir()?;
-            let uploader = Uploader::new(config.api_base_url.clone(), token);
-            watcher::watch(&mut config, &templates_dir, &uploader)?;
+            run_watch(&mut config)?;
         }
         Commands::Calibrate {
             name,
