@@ -46,7 +46,7 @@ export type DeckTrend = {
 export type DeckTrendData = {
   /** Chronological, one entry per week that had at least one game logged — weeks with no play are omitted, not zero-filled. Empty if there's no data at all. */
   points: TrendPoint[];
-  /** Top decks faced by total plays in the window, sorted descending — at most TOP_N. */
+  /** Decks faced in the latest week, then the most-played decks in the window, at most TOP_N. */
   decks: DeckTrend[];
   /** Distinct matches in the window. */
   matchesInWindow: number;
@@ -115,7 +115,15 @@ function aggregateDeckTrends(rows: TrendRow[]): DeckTrendData {
     return { points: [], decks: [], matchesInWindow: 0 };
   }
 
-  const topDecks = [...windowTotals.entries()].sort((a, b) => b[1] - a[1]).slice(0, TOP_N).map(([name]) => name);
+  // Keep the limited chart focused on the current field: otherwise a newly
+  // uploaded matchup can be hidden behind five older, more-played decks.
+  const latestDecks = Object.entries(byWeek.get(isoDate(latestWeek)) ?? {})
+    .sort(([, a], [, b]) => b - a)
+    .map(([name]) => name);
+  const topDecks = [...new Set([
+    ...latestDecks,
+    ...[...windowTotals.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name),
+  ])].slice(0, TOP_N);
   const topSet = new Set(topDecks);
 
   const points: TrendPoint[] = weekKeys.map((weekStart) => {

@@ -15,7 +15,7 @@ const FAINT = "#786F5D";
 //   node scripts/validate_palette.js "#3987e5,#d95926,#199e70,#c98500,#d55181,..." \
 //     --mode dark --surface "#221c15"
 // -> ALL CHECKS PASS (worst adjacent CVD ΔE 8.4, normal-vision ΔE 19.3).
-// Assigned by rank (slot 1 = this window's most-played deck) since decks
+// Assigned by rank (latest-week decks first, then most-played) since decks
 // are computed fresh server-side per render, not re-filtered client-side —
 // see lib/deck-trends.ts's "color follows the entity" note if that changes.
 const SERIES_COLORS = ["#3987E5", "#D95926", "#199E70", "#C98500", "#D55181"];
