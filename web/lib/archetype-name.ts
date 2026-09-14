@@ -18,6 +18,8 @@
 // (the parser picked different Pokémon out of the same real deck).
 const ARCHETYPE_ALIASES: Record<string, string> = {
   Applin: "Festival Lead",
+  Budew: "Dragapult ex",
+  Drakloak: "Dragapult ex",
 };
 
 export function displayArchetype(raw: string): string;
