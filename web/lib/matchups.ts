@@ -24,14 +24,14 @@ export type DeckStats = {
   gamesLogged: number;
   recent: RecentResult[]; // chronological, oldest first, capped at 12
   // Every opponent archetype this deck has a decisive game against — not
-  // capped at the top-N the matrix shows, and not collapsed to a single
+  // collapsed to a single
   // best/worst (which broke when several opponents tied on win rate, e.g.
   // an unbeaten deck at 100% across the board). Most-played first.
   matchups: OpponentRecord[];
 };
 
 export type MatchupData = {
-  // Top decks by play frequency (appearing as either side of a match),
+  // Decks by play frequency (appearing as either side of a match),
   // most-played first. Empty until matches with a known archetype exist.
   decks: string[];
   // matrix[i][j] = row deck i's record against column deck j.
@@ -41,8 +41,6 @@ export type MatchupData = {
   worst: { rowDeck: string; colDeck: string; winRate: number } | null;
   perDeck: Record<string, DeckStats>;
 };
-
-const TOP_N = 5;
 
 type MatchRow = {
   player_deck_archetype: string;
@@ -67,7 +65,6 @@ function aggregateMatchups(rawRows: MatchRow[]): MatchupData {
   }
   const decks = [...playCounts.entries()]
     .sort((a, b) => b[1] - a[1])
-    .slice(0, TOP_N)
     .map(([name]) => name);
 
   const matrix: MatchupCell[][] = decks.map(() => decks.map(() => ({ games: 0, winRate: null })));

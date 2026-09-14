@@ -77,7 +77,7 @@ export function MatchupExplorer({
           <span className="text-xs" style={{ color: FAINT }}>
             {overall.games === 0
               ? "not enough decisive games yet"
-              : `across ${overall.games} decisive game${overall.games === 1 ? "" : "s"}, top ${decks.length} decks played`}
+              : `across ${overall.games} decisive game${overall.games === 1 ? "" : "s"}, ${decks.length} decks played`}
           </span>
         </div>
 
