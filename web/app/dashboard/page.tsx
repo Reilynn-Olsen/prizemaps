@@ -36,22 +36,30 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  const { data: statsRows, error: statsError } = await supabase
-    .from("matches")
-    .select("result, player_deck_archetype")
-    .limit(500);
-
-  const { data: recentMatches, error: recentError } = await supabase
-    .from("matches")
-    .select("id, player_deck_archetype, opponent_deck_archetype, result, created_at")
-    .order("created_at", { ascending: false })
-    .limit(15);
+  const [
+    { data: statsRows, error: statsError },
+    { data: recentMatches, error: recentError },
+  ] = await Promise.all([
+    supabase
+      .from("matches")
+      .select("result, player_deck_archetype")
+      .limit(500),
+    supabase
+      .from("matches")
+      .select("id, player_deck_archetype, opponent_deck_archetype, result, created_at")
+      .order("created_at", { ascending: false })
+      .limit(15),
+  ]);
 
   const stats = computeStats(statsRows ?? []);
   const hasMatches = stats.totalMatches > 0;
-  const userMatchups = hasMatches ? await computeUserMatchups(supabase) : null;
-  const userTrends = hasMatches ? await computeUserDeckTrends(supabase) : null;
-  const userPlayDraw = hasMatches ? await computeUserPlayDraw(supabase) : null;
+  const [userMatchups, userTrends, userPlayDraw] = hasMatches
+    ? await Promise.all([
+        computeUserMatchups(supabase),
+        computeUserDeckTrends(supabase),
+        computeUserPlayDraw(supabase),
+      ])
+    : [null, null, null];
 
   return (
     <main className="mx-auto max-w-3xl p-6">

@@ -25,21 +25,25 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
     redirect("/login");
   }
 
-  const { data: match } = await supabase
-    .from("matches")
-    .select("id, opponent_name, player_deck_archetype, opponent_deck_archetype, result, created_at")
-    .eq("id", id)
-    .single();
+  const [
+    { data: match },
+    { data: events },
+  ] = await Promise.all([
+    supabase
+      .from("matches")
+      .select("id, opponent_name, player_deck_archetype, opponent_deck_archetype, result, created_at")
+      .eq("id", id)
+      .single(),
+    supabase
+      .from("match_events")
+      .select("id, sequence, kind, raw_line, payload")
+      .eq("match_id", id)
+      .order("sequence", { ascending: true }),
+  ]);
 
   if (!match) {
     notFound();
   }
-
-  const { data: events } = await supabase
-    .from("match_events")
-    .select("id, sequence, kind, raw_line, payload")
-    .eq("match_id", id)
-    .order("sequence", { ascending: true });
 
   const turns = computeTurnSnapshots((events ?? []) as MatchEvent[]);
 

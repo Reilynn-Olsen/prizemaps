@@ -24,8 +24,10 @@ const MUTED = "#9C9484";
 const FAINT = "#786F5D";
 
 export default async function Home() {
-  const matchups = await computeGlobalMatchups();
-  const trends = await computeGlobalDeckTrends();
+  const [matchups, trends] = await Promise.all([
+    computeGlobalMatchups(),
+    computeGlobalDeckTrends(),
+  ]);
 
   return (
     <main className="min-h-screen w-full" style={{ background: INK, color: PARCHMENT, fontFamily: "var(--font-mono), monospace" }}>
