@@ -7,6 +7,7 @@ import { computeStats } from "@/lib/stats";
 import { computeUserMatchups } from "@/lib/matchups";
 import { computeUserDeckTrends } from "@/lib/deck-trends";
 import { computeUserPlayDraw } from "@/lib/play-draw";
+import { LAUNCHER_URL } from "@/lib/links";
 import { ArchetypeWinChart } from "@/components/archetype-win-chart";
 import { MatchupExplorer } from "@/components/matchup-explorer";
 import { DeckTrendChart } from "@/components/deck-trend-chart";
@@ -70,12 +71,19 @@ export default async function DashboardPage() {
 
       {!hasMatches && (
         <section className="mt-8 rounded-xl border border-border-hairline bg-surface-card p-4">
-          <h2 className="text-sm font-medium text-text-primary">Match watcher — coming soon</h2>
+          <h2 className="text-sm font-medium text-text-primary">Match watcher</h2>
           <p className="mt-1 text-sm text-text-muted">
             The watcher reads your PTCGL match history and uploads each finished game
-            here automatically. It isn&apos;t ready to download yet — install and setup
-            instructions will show up here once it&apos;s available.
+            here automatically.
           </p>
+          <a
+            href={LAUNCHER_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-4 inline-flex rounded-lg bg-accent-strong px-3 py-2 text-sm font-medium text-accent-ink hover:opacity-90"
+          >
+            Download the watcher
+          </a>
         </section>
       )}
 
